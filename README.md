@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：題材の提案・要求の相談。実装・AWS構築は未着手。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定を作成済み。VPCと2つのサブネットのTerraform定義を作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -13,6 +13,26 @@ AWSでEFSを構築し、仕組みと設計理由を説明できるようにな�
 [EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。
 
 AWS公式アイコン（2026年7月31日版、11月7日確認）はファイル内に埋め込み済みで、このファイルだけで開いて編集できます。管理接続・権限・バックアップの詳細は今後設計します。
+
+## ネットワークの命名・CIDR
+
+整理日：2026年11月7日。本人が提示した `vpc-efs` を基準とする。VPCとサブネットはTerraformへ反映済み。AWS環境との重複は未確認。
+
+命名は `種類-efs-用途-AZ` とし、AZは `1a`・`1c` のように数字を含める。用途・AZが不要な場合は省略する。AWS上の表示名は `Name` タグで付け、Terraform内の参照名はアンダースコアを使う。
+
+| 対象 | Nameタグ | Terraform参照名 | CIDR | AZ |
+|---|---|---|---|---|
+| VPC | `vpc-efs` | `aws_vpc.efs` | `10.30.0.0/16` | — |
+| Private subnet A | `subnet-efs-private-1a` | `aws_subnet.private_1a` | `10.30.10.0/24` | `ap-northeast-1a` |
+| Private subnet C | `subnet-efs-private-1c` | `aws_subnet.private_1c` | `10.30.11.0/24` | `ap-northeast-1c` |
+| Route table A | `rtb-efs-private-1a` | `aws_route_table.private_1a` | — | — |
+| Route table C | `rtb-efs-private-1c` | `aws_route_table.private_1c` | — | — |
+
+ルートテーブルの個別定義・関連付けは今回の実装対象外。構築時はVPCのメインルートテーブルが暗黙に使われる。
+
+既存ECSのローカル定義は `10.20.0.0/16` のため、別の `10.30.0.0/16` を提案。サブネットはVPCの範囲内で重複しない2つの `/24` とする。EC2とマウントターゲットは同じAZの同じサブネットへ配置する案。EFSファイルシステム自体にサブネットCIDRを割り当てる意味ではない。
+
+VPCの `/16` は拡張余地を持たせた学習用の案で、今回の台数から必要になる大きさではない。実際の接続先ネットワークとの重複や利用可能なAZは構築前に確認する。管理接続・外向き経路は未設計のため、Public subnet・NAT Gateway等はまだ追加しない。
 
 ## 推奨する題材（検討中）
 
