@@ -16,3 +16,11 @@ crash.*.log
 *.secret
 private/
 非公開/
+
+# ローカル認証情報・状態・生成物を公開しない
+!.env.sample
+*.pfx
+cdk.out/
+node_modules/
+.venv/
+__pycache__/
