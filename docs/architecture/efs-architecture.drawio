@@ -596,7 +596,7 @@
         <mxCell id="03-security-groups-1" value="Security groups  |  必要な通信だけを許可" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#172B45;fontSize=34;fontStyle=1;lineHeight=1.45;" vertex="1" parent="1">
           <mxGeometry x="56" y="30" width="1360" height="52" as="geometry" />
         </mxCell>
-        <mxCell id="03-security-groups-2" value="現在のSG定義  /  ALB用の通信ルールは次工程" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=20;fontStyle=0;lineHeight=1.45;" vertex="1" parent="1">
+        <mxCell id="03-security-groups-2" value="EFS・VPC endpoint向けの通信 / ALBの経路は省略" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=20;fontStyle=0;lineHeight=1.45;" vertex="1" parent="1">
           <mxGeometry x="58" y="91" width="1450" height="35" as="geometry" />
         </mxCell>
         <mxCell id="03-security-groups-4" value="構成案 / AWS未構築" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;fontColor=#7954B3;fontSize=17;fontStyle=1;lineHeight=1.45;" vertex="1" parent="1">
@@ -620,7 +620,7 @@
         <mxCell id="03-security-groups-13" value="登録 / 閲覧" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=21;fontStyle=0;lineHeight=1.45;" vertex="1" parent="03-security-groups-9">
           <mxGeometry x="35" y="288" width="340" height="32" as="geometry" />
         </mxCell>
-        <mxCell id="03-security-groups-14" value="IN なし" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=18;fontStyle=0;lineHeight=1.45;" vertex="1" parent="03-security-groups-9">
+        <mxCell id="03-security-groups-14" value="IN  ALBからTCP 8000" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=18;fontStyle=0;lineHeight=1.45;" vertex="1" parent="03-security-groups-9">
           <mxGeometry x="35" y="350" width="340" height="30" as="geometry" />
         </mxCell>
         <mxCell id="03-security-groups-17" value="sg-efs-mount" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#228453;fontSize=28;fontStyle=1;lineHeight=1.45;" vertex="1" parent="03-security-groups-15">

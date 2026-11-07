@@ -88,7 +88,7 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 ## イメージ取得・ログ送信の構成案
 
-構成図は1ファイル・3ページ構成。01はALBから登録・閲覧サービスとEFSへの経路、02はECRからのイメージ取得とCloudWatch Logsへの送信、03は現在定義済みのSGと許可ルールを示す。ALB用のSG・許可ルールは次工程。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
+構成図は1ファイル・3ページ構成。01はALBから登録・閲覧サービスとEFSへの経路、02はECRからのイメージ取得とCloudWatch Logsへの送信、03はEFS・VPC endpoint向けのSG通信を示す。ALB関連の経路は同シートでは省略している。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
 
 - ECR用のInterface endpointは `ecr.api` と `ecr.dkr` の2種類。Private DNSを有効にし、各エンドポイントのENIは1aのサブネットだけに配置する。1cのタスクも1aの入口を利用する。
 - ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointを両サブネットが暗黙に利用するVPCのメインルートテーブルへ関連付ける。将来個別のルートテーブルを作る場合は関連付け先を変更する。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
@@ -133,19 +133,22 @@ Terraformのfmt・validateは確認済み。AWSへのplan・applyと実環境で
 
 ## セキュリティグループ
 
-`infra/security_groups.tf` にSG本体3つと許可ルールを定義。タスク、EFSマウントターゲット、Interface endpointへの関連付けは、それぞれのリソースを作成するときに行う。
+`infra/security_groups.tf` にALB・タスク・マウントターゲット・endpoint用のSG本体4つと許可ルールを定義。タスク、EFSマウントターゲット、Interface endpointへの関連付けは、それぞれのリソースを作成するときに行う。
 
-以下のSG名はNameタグ。AWSのSG本体名は`sg-`で始められないため、`efs-task`・`efs-mount`・`efs-endpoint`とする。
+以下のSG名はNameタグ。AWSのSG本体名は`sg-`で始められないため、`efs-alb`・`efs-task`・`efs-mount`・`efs-endpoint`とする。
 
 | SG | 関連付け先（今後作成） | インバウンド | アウトバウンド |
 |---|---|---|---|
-| `sg-efs-task` | Fargateタスク | なし | mount SGへTCP 2049、endpoint SGへTCP 443、東京のS3プレフィックスリストへTCP 443 |
+| `sg-efs-alb` | ALB（未実装） | 指定した接続元CIDRからTCP 443 | task SGへTCP 8000 |
+| `sg-efs-task` | Fargateタスク | alb SGからTCP 8000 | mount SGへTCP 2049、endpoint SGへTCP 443、東京のS3プレフィックスリストへTCP 443 |
 | `sg-efs-mount` | EFSマウントターゲット | task SGからTCP 2049 | 新規通信の許可なし |
 | `sg-efs-endpoint` | ECR API・DKR、LogsのInterface endpoint | task SGからTCP 443 | 新規通信の許可なし |
 
-SGはステートフルなので、許可した通信への応答用ルールは不要。タスクに受信ルールを追加せず、ファイル共有のためのタスク間通信も許可しない。SGは通信を制御するもので、ファイルの読み書き権限は後続のIAM・POSIX権限等で設計する。
+SGはステートフルなので、許可した通信への応答用ルールは不要。タスクのTCP 8000はALBのSGから受信を許可する。ファイル共有のためのタスク間通信は許可しない。SGは通信を制御するもので、ファイルの読み書き権限は後続のIAM・POSIX権限等で設計する。
 
-S3 Gateway endpointにSGは付けない。`data.aws_prefix_list.s3` はAWS管理の既存の宛先一覧を参照し、S3バケットを作成する定義ではない。実際の値の取得はplan/apply時にAWSへの照会が必要。SGの定義だけでは通信経路やサービスへのアクセス権は完成せず、エンドポイント・経路・IAM等は未実装。
+利用者の接続元は `infra/variables.tf` の `alb_allowed_cidr` にIPv4 CIDRで指定する（例：検証用PCのグローバルIP/32）。既定値はなく、plan/apply時に指定が必要。実際のIPを公開リポジトリへコミットしない。ALB・リスナー・HTTPS証明書は未実装で、SGだけではHTTPS通信は成立しない。
+
+S3 Gateway endpointにSGは付けない。`data.aws_prefix_list.s3` はAWS管理の既存の宛先一覧を参照し、S3バケットを作成する定義ではない。実際の値の取得はplan/apply時にAWSへの照会が必要。SGの定義だけでは通信経路やサービスへのアクセス権は完成せず、エンドポイントポリシーやEFSのIAM認証等は今後の工程。
 
 ## セキュリティ検査
 
