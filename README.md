@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定を作成済み。VPCと2つのサブネットのTerraform定義を作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルールを定義済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -82,11 +82,11 @@ AWSの作成・変更・削除、課金、公開・pushは、対象・影響・�
 
 VPCと2つのサブネットのTerraform定義は維持し、帳票作成・参照をECSタスクで実行する。EFSと各AZのマウントターゲットを共有する構想は維持する。単体EC2へのSession Manager接続を前提とした次工程は見直す。実行基盤はFargate（Linux）を選択し、構成図を更新。タスクの起動・確認方法を理解してから実装する。ECSでのEFS利用はAWS公式の[対応条件](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/efs-volumes.html)を確認する。
 
-FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目はEFSへのデータ経路、2ページ目はイメージ取得・ログ送信の経路を示す。タスク定義やECSクラスター等の管理上の関係は省略している。作成側・参照側のAZ配置は検証用の案で、自動冗長化を意味しない。
+FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目はEFSへのデータ経路、2ページ目はイメージ取得・ログ送信、3ページ目はSGと許可ルールの関係を示す。タスク定義やECSクラスター等の管理上の関係は省略している。作成側・参照側のAZ配置は検証用の案で、自動冗長化を意味しない。
 
 ## イメージ取得・ログ送信の構成案
 
-構成図は1ファイル・2ページ構成。01はEFS共有、02はECRからのイメージ取得とCloudWatch Logsへの送信を示す。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
+構成図は1ファイル・3ページ構成。01はEFS共有、02はECRからのイメージ取得とCloudWatch Logsへの送信、03はSGと許可ルールを示す。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
 
 - ECR用のInterface endpointは `ecr.api` と `ecr.dkr` の2種類。Private DNSを有効にし、各エンドポイントを1a・1cのサブネットに関連付ける案。
 - ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointをタスクのサブネットに対応するルートテーブルへ関連付ける。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
@@ -95,6 +95,22 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - endpointのSecurity Group・ポリシー、タスク実行ロール、イメージの事前push、利用費用は実装前に具体化する。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。エンドポイントのTerraform実装・AWS作成は未実施。
+
+## セキュリティグループ
+
+`infra/security_groups.tf` にSG本体3つと許可ルールを定義。タスク、EFSマウントターゲット、Interface endpointへの関連付けは、それぞれのリソースを作成するときに行う。
+
+以下のSG名はNameタグ。AWSのSG本体名は`sg-`で始められないため、`efs-task`・`efs-mount`・`efs-endpoint`とする。
+
+| SG | 関連付け先（今後作成） | インバウンド | アウトバウンド |
+|---|---|---|---|
+| `sg-efs-task` | Fargateタスク | なし | mount SGへTCP 2049、endpoint SGへTCP 443、東京のS3プレフィックスリストへTCP 443 |
+| `sg-efs-mount` | EFSマウントターゲット | task SGからTCP 2049 | 新規通信の許可なし |
+| `sg-efs-endpoint` | ECR API・DKR、LogsのInterface endpoint | task SGからTCP 443 | 新規通信の許可なし |
+
+SGはステートフルなので、許可した通信への応答用ルールは不要。タスクに受信ルールを追加せず、ファイル共有のためのタスク間通信も許可しない。SGは通信を制御するもので、ファイルの読み書き権限は後続のIAM・POSIX権限等で設計する。
+
+S3 Gateway endpointにSGは付けない。`data.aws_prefix_list.s3` はAWS管理の既存の宛先一覧を参照し、S3バケットを作成する定義ではない。実際の値の取得はplan/apply時にAWSへの照会が必要。SGの定義だけでは通信経路やサービスへのアクセス権は完成せず、エンドポイント・経路・IAM等は未実装。
 
 ## セキュリティ検査
 
