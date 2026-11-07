@@ -111,6 +111,29 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - `app/main.py`：FastAPIアプリの `GET /health` が `{"status": "ok"}` を返す。EFSへの接続を検査するAPIではない。
 - `app/requirements.txt`：FastAPIとUvicornのバージョンを固定。`app/Dockerfile` はPython 3.14の環境へ依存ライブラリとコードをコピーし、Uvicornをポート8000で起動する。CSVの登録・閲覧処理は未実装。
 
+## Reactの操作画面
+
+`frontend/` にReactとViteで登録・一覧・ダウンロードの1画面を作成。生成りの背景、深緑、細い線と余白を使う。現在は画面の土台で、AWS・FastAPIには未接続。
+
+- ファイル選択・選び直しと、架空サンプル3件のダウンロードを確認済み。
+- 登録・一覧更新ボタンはAPI接続まで無効。選択したファイルは送信・保存しない。
+- サンプルはブラウザ内で生成する。表示内容はEFSから取得したものではない。
+- 狭い画面では縦並びに切り替えるCSSを実装。ブラウザでの表示確認はデスクトップで実施。
+
+Node.js 24で、リポジトリのルートから起動する。
+
+```bash
+cd frontend
+npm ci --ignore-scripts
+npm run dev
+```
+
+表示先は `http://127.0.0.1:5173/`。`npm run build` でビルドできることを確認済み。成果物 `frontend/dist/` はGit対象外。CIにもビルド確認を追加した。AWSへの配信方法とAPI接続は後続の工程。
+
+主なファイル：`src/App.jsx` が画面・操作、`src/styles.css` が見た目、`package.json` が依存関係と起動コマンド、`package-lock.json` が実際の依存バージョンを管理する。
+
+参考：[Reactの構築手順](https://react.dev/learn/build-a-react-app-from-scratch)、[Viteのガイド](https://vite.dev/guide/)（2026年11月7日確認）。
+
 ## ローカルのコンテナ起動
 
 リポジトリのルートで実行する。ビルド対象は `./app`。ECRへのpushやAWSへのデプロイは行わない。
