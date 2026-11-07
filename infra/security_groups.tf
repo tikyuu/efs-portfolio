@@ -1,4 +1,14 @@
 # SG本体と許可ルールを分け、SG同士の相互参照による循環を避ける。
+resource "aws_security_group" "alb" {
+  name        = "efs-alb"
+  description = "EFS portfolio application load balancer"
+  vpc_id      = aws_vpc.efs.id
+
+  tags = {
+    Name = "sg-efs-alb"
+  }
+}
+
 resource "aws_security_group" "task" {
   name        = "efs-task"
   description = "EFS portfolio Fargate tasks"
@@ -27,6 +37,35 @@ resource "aws_security_group" "endpoint" {
   tags = {
     Name = "sg-efs-endpoint"
   }
+}
+
+# 利用者からALBへHTTPSを許可する。接続元CIDRは構築時に指定する。
+resource "aws_vpc_security_group_ingress_rule" "alb_from_client" {
+  security_group_id = aws_security_group.alb.id
+  cidr_ipv4         = var.alb_allowed_cidr
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  description       = "HTTPS from allowed client network"
+}
+
+# ALBからタスクへの通信を、送信側と受信側で許可する。
+resource "aws_vpc_security_group_egress_rule" "alb_to_task" {
+  security_group_id            = aws_security_group.alb.id
+  referenced_security_group_id = aws_security_group.task.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8000
+  to_port                      = 8000
+  description                  = "Application traffic to Fargate tasks"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "task_from_alb" {
+  security_group_id            = aws_security_group.task.id
+  referenced_security_group_id = aws_security_group.alb.id
+  ip_protocol                  = "tcp"
+  from_port                    = 8000
+  to_port                      = 8000
+  description                  = "Application traffic from ALB"
 }
 
 # タスクからEFSへのNFS通信を、送信側と受信側で許可する。
