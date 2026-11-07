@@ -30,7 +30,7 @@ resource "aws_ecs_task_definition" "writer" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.efs.name
+          awslogs-group         = aws_cloudwatch_log_group.writer.name
           awslogs-region        = "ap-northeast-1"
           awslogs-stream-prefix = "writer"
         }
@@ -40,5 +40,42 @@ resource "aws_ecs_task_definition" "writer" {
 
   tags = {
     Name = "ecs-efs-writer-task"
+  }
+}
+
+resource "aws_ecs_task_definition" "reader" {
+  family                   = "ecs-efs-reader-task"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.task_execution.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "efs-reader"
+      image     = "${aws_ecr_repository.efs.repository_url}:v1"
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 8000
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.reader.name
+          awslogs-region        = "ap-northeast-1"
+          awslogs-stream-prefix = "reader"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    Name = "ecs-efs-reader-task"
   }
 }
