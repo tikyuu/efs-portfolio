@@ -249,7 +249,7 @@
         <mxCell id="01-overview-65" value="ecs-efs-cluster / 1サービス・2タスク" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=17;fontStyle=0;lineHeight=1.45;" vertex="1" parent="1">
           <mxGeometry x="800" y="775" width="530" height="25" as="geometry" />
         </mxCell>
-        <mxCell id="01-overview-66" value="1サービス・2タスクの構成方針 / ECSサービス・アプリ処理は未実装 / AWS未構築" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=18;fontStyle=0;lineHeight=1.45;" vertex="1" parent="1">
+        <mxCell id="01-overview-66" value="1サービス・2タスク / アプリ処理は未実装 / AWS未構築" style="html=0;whiteSpace=nowrap;fontFamily=Hiragino Sans;fontColor=#172B45;text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacing=0;fontColor=#546780;fontSize=18;fontStyle=0;lineHeight=1.45;" vertex="1" parent="1">
           <mxGeometry x="300" y="885" width="1440" height="30" as="geometry" />
         </mxCell>
       </root>
