@@ -60,3 +60,47 @@ resource "aws_ecs_task_definition" "app" {
     Name = "ecs-efs-app-task"
   }
 }
+
+resource "aws_ecs_service" "app" {
+  name             = "ecs-efs-app-service"
+  cluster          = aws_ecs_cluster.efs.id
+  task_definition  = aws_ecs_task_definition.app.arn
+  launch_type      = "FARGATE"
+  platform_version = "1.4.0"
+  desired_count    = 2
+
+  # タスクの配置が偏った場合、AZ間で再調整する。
+  availability_zone_rebalancing     = "ENABLED"
+  health_check_grace_period_seconds = 60
+
+  network_configuration {
+    subnets = [
+      aws_subnet.private_1a.id,
+      aws_subnet.private_1c.id,
+    ]
+    security_groups  = [aws_security_group.task.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app.arn
+    container_name   = "efs-app"
+    container_port   = 8000
+  }
+
+  # タスク起動に必要な入口・通信経路・権限の作成を待つ。
+  depends_on = [
+    aws_lb_listener.https,
+    aws_efs_mount_target.private_1a,
+    aws_efs_mount_target.private_1c,
+    aws_iam_role_policy_attachment.task_execution,
+    aws_vpc_endpoint.ecr_api,
+    aws_vpc_endpoint.ecr_dkr,
+    aws_vpc_endpoint.logs,
+    aws_vpc_endpoint.s3,
+  ]
+
+  tags = {
+    Name = "ecs-efs-app-service"
+  }
+}
