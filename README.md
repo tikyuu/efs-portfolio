@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲットを定義済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイントを定義済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -88,13 +88,13 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 構成図は1ファイル・3ページ構成。01はEFS共有、02はECRからのイメージ取得とCloudWatch Logsへの送信、03はSGと許可ルールを示す。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
 
-- ECR用のInterface endpointは `ecr.api` と `ecr.dkr` の2種類。Private DNSを有効にし、各エンドポイントを1a・1cのサブネットに関連付ける案。
-- ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointをタスクのサブネットに対応するルートテーブルへ関連付ける。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
-- `awslogs`による送信には `logs` Interface endpointを使用し、1a・1cのサブネットに関連付ける案。
-- Interface endpointの図形は論理リソースを表す。実際のENIは各Private subnetに配置される。S3 Gateway endpointはサブネット内のENIではなく、ルートテーブル経由で利用する。
-- endpointのSecurity Group・ポリシー、タスク実行ロール、イメージの事前push、利用費用は実装前に具体化する。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
+- ECR用のInterface endpointは `ecr.api` と `ecr.dkr` の2種類。Private DNSを有効にし、各エンドポイントのENIは1aのサブネットだけに配置する。1cのタスクも1aの入口を利用する。
+- ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointを両サブネットが暗黙に利用するVPCのメインルートテーブルへ関連付ける。将来個別のルートテーブルを作る場合は関連付け先を変更する。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
+- `awslogs`による送信には `logs` Interface endpointを使用し、1aのサブネットだけに配置する。
+- Interface endpointの図形は論理リソースを表す。図は変更前の2AZ配置案で、Terraformの現在の配置先は1aのみ。S3 Gateway endpointはサブネット内のENIではなく、ルートテーブル経由で利用する。
+- endpointのSecurity Groupは関連付け済み。ポリシーの絞り込み、タスク実行ロール、イメージの事前push、利用費用の確認はAWS構築前に行う。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
-公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。エンドポイントのTerraform実装・AWS作成は未実施。
+公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
 
 ## EFS本体とマウントターゲット
 
