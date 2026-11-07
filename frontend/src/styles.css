@@ -45,6 +45,8 @@ h2 { font-size: 14px; letter-spacing: .12em; font-weight: 500; margin: 0; }
 .choose-button > span { font-size: 16px; }
 .register-button { margin-top: 16px; padding: 14px 18px; width: 100%; display: flex; justify-content: space-between; border: 0; background: #dce2d4; color: #6d7d66; font-size: 12px; letter-spacing: .07em; }
 .register-button > span { font-size: 16px; }
+.register-button:not(:disabled) { background: var(--accent); color: #f5f4ef; }
+.register-button:not(:disabled):hover { background: #273d30; }
 .subtle-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .notice { color: #53694b; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; margin: 8px 0 0; }
 .notice:empty { display: none; }
