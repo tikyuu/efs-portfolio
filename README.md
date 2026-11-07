@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録・閲覧側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと4つのサブネット、Internet Gatewayとパブリック用ルート、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録・閲覧側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -10,29 +10,31 @@ AWSでEFSを構築し、仕組みと設計理由を説明できるようにな�
 
 ## 構成図
 
-[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。ALB・ECSサービス・パブリックサブネットは未実装です。
+[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB・ECSサービスは未実装です。
 
 AWS公式アイコン（2026年7月31日版、11月7日確認）はファイル内に埋め込み済みで、このファイルだけで開いて編集できます。管理接続・権限・バックアップの詳細は今後設計します。
 
 ## ネットワークの命名・CIDR
 
-整理日：2026年11月7日。本人が提示した `vpc-efs` を基準とする。VPCとサブネットはTerraformへ反映済み。AWS環境との重複は未確認。
+整理日：2026年11月7日。本人が提示した `vpc-efs` を基準とする。VPC、Private・Public各2つのサブネット、IGWとパブリック用ルートはTerraformへ反映済み。AWS環境との重複は未確認。
 
 命名は `種類-efs-用途-AZ` とし、AZは `1a`・`1c` のように数字を含める。用途・AZが不要な場合は省略する。AWS上の表示名は `Name` タグで付け、Terraform内の参照名はアンダースコアを使う。
 
 | 対象 | Nameタグ | Terraform参照名 | CIDR | AZ |
 |---|---|---|---|---|
 | VPC | `vpc-efs` | `aws_vpc.efs` | `10.30.0.0/16` | — |
+| Public subnet A | `subnet-efs-public-1a` | `aws_subnet.public_1a` | `10.30.0.0/24` | `ap-northeast-1a` |
+| Public subnet C | `subnet-efs-public-1c` | `aws_subnet.public_1c` | `10.30.1.0/24` | `ap-northeast-1c` |
 | Private subnet A | `subnet-efs-private-1a` | `aws_subnet.private_1a` | `10.30.10.0/24` | `ap-northeast-1a` |
 | Private subnet C | `subnet-efs-private-1c` | `aws_subnet.private_1c` | `10.30.11.0/24` | `ap-northeast-1c` |
 | Route table A | `rtb-efs-private-1a` | `aws_route_table.private_1a` | — | — |
 | Route table C | `rtb-efs-private-1c` | `aws_route_table.private_1c` | — | — |
 
-ルートテーブルの個別定義・関連付けは今回の実装対象外。構築時はVPCのメインルートテーブルが暗黙に使われる。
+Public subnetは共通の `rtb-efs-public` に関連付け、`0.0.0.0/0` を `igw-efs` へ向ける定義を追加。Private subnetの個別ルートテーブルは未定義で、VPCのメインルートテーブルが暗黙に使われる。
 
 既存ECSのローカル定義は `10.20.0.0/16` のため、別の `10.30.0.0/16` を提案。サブネットはVPCの範囲内で重複しない2つの `/24` とする。ECSタスクの配置先とマウントターゲットは同じAZのサブネットを使う案。Fargateはawsvpcネットワークモードを使用する。EFSファイルシステム自体にサブネットCIDRを割り当てる意味ではない。
 
-VPCの `/16` は拡張余地を持たせた学習用の案で、今回の台数から必要になる大きさではない。実際の接続先ネットワークとの重複や利用可能なAZは構築前に確認する。イメージ取得・ログ送信はVPCエンドポイントを使う案とし、ALB用に2つのPublic subnetを追加する方針。CIDRは1aを `10.30.0.0/24`、1cを `10.30.1.0/24` とする案。全体図ではCIDRを省略し、通信の流れを優先している。Terraformへの追加は次工程とし、NAT Gatewayは使わない。HTTPS・アクセス制限・通信設定の詳細は今後設計する。
+VPCの `/16` は拡張余地を持たせた学習用の案で、今回の台数から必要になる大きさではない。実際の接続先ネットワークとの重複や利用可能なAZは構築前に確認する。イメージ取得・ログ送信はVPCエンドポイントを使う案とし、ALB用に2つのPublic subnetを追加した。CIDRは1aを `10.30.0.0/24`、1cを `10.30.1.0/24` で定義。全体図ではCIDRを省略し、通信の流れを優先している。Public subnet、IGW、ルートと関連付けはTerraformに定義済み。NAT Gatewayは使わない。HTTPS・アクセス制限・通信設定の詳細は今後設計する。
 
 ## 推奨する題材（検討中）
 
