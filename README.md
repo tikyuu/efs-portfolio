@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルールを定義済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲットを定義済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -95,6 +95,12 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - endpointのSecurity Group・ポリシー、タスク実行ロール、イメージの事前push、利用費用は実装前に具体化する。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。エンドポイントのTerraform実装・AWS作成は未実施。
+
+## EFS本体とマウントターゲット
+
+`infra/efs.tf` に保存データの暗号化を有効にしたRegional EFSを1つ定義。`private_1a`・`private_1c` の各サブネットに同じEFSへのマウントターゲットを1つずつ配置し、両方に `aws_security_group.mount` を関連付ける。
+
+Terraformのfmt・validateは確認済み。AWSへのplan・applyと実環境での通信確認は未実施。Fargateのマウント設定、通信の暗号化、IAM・ファイル権限、バックアップ等は今後の工程。
 
 ## セキュリティグループ
 
