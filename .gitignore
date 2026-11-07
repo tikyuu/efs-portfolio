@@ -22,5 +22,6 @@ private/
 *.pfx
 cdk.out/
 node_modules/
+frontend/dist/
 .venv/
 __pycache__/
