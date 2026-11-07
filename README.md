@@ -10,7 +10,7 @@ AWSでEFSを構築し、仕組みと設計理由を説明できるようにな�
 
 ## 構成図
 
-[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB本体は定義済みで、リスナー・ターゲットグループ・ECSサービスは未実装です。
+[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB本体は定義済みで、登録・閲覧用ターゲットグループも定義済みで、リスナー・ECSサービスは未実装です。
 
 AWS公式アイコン（2026年7月31日版、11月7日確認）はファイル内に埋め込み済みで、このファイルだけで開いて編集できます。管理接続・権限・バックアップの詳細は今後設計します。
 
@@ -100,7 +100,7 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 ## ALB本体
 
-`infra/alb.tf` にインターネット向けの `alb-efs` を定義。IPv4、Public subnetの1a・1c、ALB用SGを指定し、IGW接続後に作成する。リスナー・ターゲットグループ・証明書は後続の工程。Terraformの整形・定義検証は確認済みで、AWSへの適用は未実施。
+`infra/alb.tf` にインターネット向けの `alb-efs` を定義。IPv4、Public subnetの1a・1c、ALB用SGを指定し、IGW接続後に作成する。登録・閲覧用の `tg-efs-writer`・`tg-efs-reader` も定義。HTTP・8000、種類 `ip`、ヘルスチェック `/health`（200）を指定する。実際のタスク登録はECSサービス実装時に行う。リスナー・証明書は後続の工程。Terraformの整形・定義検証は確認済みで、AWSへの適用は未実施。
 
 ## ECSクラスターとアプリの土台
 
