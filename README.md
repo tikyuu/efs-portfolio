@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスターを定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -92,13 +92,16 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointを両サブネットが暗黙に利用するVPCのメインルートテーブルへ関連付ける。将来個別のルートテーブルを作る場合は関連付け先を変更する。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
 - `awslogs`による送信には `logs` Interface endpointを使用し、1aのサブネットだけに配置する。
 - Interface endpointの図形は論理リソースを表す。図は変更前の2AZ配置案で、Terraformの現在の配置先は1aのみ。S3 Gateway endpointはサブネット内のENIではなく、ルートテーブル経由で利用する。
-- endpointのSecurity Groupは関連付け済み。ポリシーの絞り込み、タスク実行ロール、イメージの事前push、利用費用の確認はAWS構築前に行う。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
+- endpointのSecurity Groupは関連付け済み。エンドポイントポリシーの絞り込み、イメージの事前push、利用費用の確認はAWS構築前に行う。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
 
 ## ECSクラスターとアプリの土台
 
-- `infra/ecs.tf`：クラスター `ecs-efs-cluster` を1つ定義。サービス・タスク定義は未実装。
+- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と登録側のタスク定義 `ecs-efs-writer-task` を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは `/ecs/efs`。ECSサービス・参照側のタスク定義・EFSマウントは未実装。
+- `infra/iam.tf`：実行ロール `iam-efs-task-execution-role` を定義し、ECSタスクへの信頼設定とAWS管理の `AmazonECSTaskExecutionRolePolicy` を関連付ける。ECR取得とログ送信を許可するポリシーで、アプリ用のタスクロールとは別。
+
+タスク定義のTerraform検証は成功。AWSへのplan・apply、イメージの事前push、タスク起動は未実施。`v1` のイメージ登録が必要で、将来ビルドするイメージのCPUアーキテクチャもタスクと合わせる。
 - `app/main.py`：FastAPIアプリの `GET /health` が `{"status": "ok"}` を返す。EFSへの接続を検査するAPIではない。
 - `app/requirements.txt`：FastAPIとUvicornのバージョンを固定。`app/Dockerfile` はPython 3.14の環境へ依存ライブラリとコードをコピーし、Uvicornをポート8000で起動する。CSVの登録・閲覧処理は未実装。
 
