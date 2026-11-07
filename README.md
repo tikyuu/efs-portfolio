@@ -95,3 +95,9 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - endpointのSecurity Group・ポリシー、タスク実行ロール、イメージの事前push、利用費用は実装前に具体化する。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。エンドポイントのTerraform実装・AWS作成は未実施。
+
+## セキュリティ検査
+
+[![Security checks](https://github.com/tikyuu/efs-portfolio/actions/workflows/security.yml/badge.svg)](https://github.com/tikyuu/efs-portfolio/actions/workflows/security.yml)
+
+[検査の内容と制約](SECURITY.md)を参照してください。PRで秘密情報・依存関係を検査し、IaCの指摘も報告します。検査結果と対応履歴を確認しながら保守します。
