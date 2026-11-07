@@ -17,3 +17,41 @@ resource "aws_lb" "efs" {
     Name = "alb-efs"
   }
 }
+
+resource "aws_lb_target_group" "writer" {
+  name        = "tg-efs-writer"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.efs.id
+
+  health_check {
+    path     = "/health"
+    protocol = "HTTP"
+    port     = "traffic-port"
+    matcher  = "200"
+  }
+
+  tags = {
+    Name = "tg-efs-writer"
+  }
+}
+
+resource "aws_lb_target_group" "reader" {
+  name        = "tg-efs-reader"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.efs.id
+
+  health_check {
+    path     = "/health"
+    protocol = "HTTP"
+    port     = "traffic-port"
+    matcher  = "200"
+  }
+
+  tags = {
+    Name = "tg-efs-reader"
+  }
+}
