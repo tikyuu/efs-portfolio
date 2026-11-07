@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録・閲覧側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと4つのサブネット、Internet Gatewayとパブリック用ルート、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録・閲覧側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -10,35 +10,37 @@ AWSでEFSを構築し、仕組みと設計理由を説明できるようにな�
 
 ## 構成図
 
-[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ECS FargateタスクからEFSを利用する構成へ更新済みです。
+[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB・ECSサービスは未実装です。
 
 AWS公式アイコン（2026年7月31日版、11月7日確認）はファイル内に埋め込み済みで、このファイルだけで開いて編集できます。管理接続・権限・バックアップの詳細は今後設計します。
 
 ## ネットワークの命名・CIDR
 
-整理日：2026年11月7日。本人が提示した `vpc-efs` を基準とする。VPCとサブネットはTerraformへ反映済み。AWS環境との重複は未確認。
+整理日：2026年11月7日。本人が提示した `vpc-efs` を基準とする。VPC、Private・Public各2つのサブネット、IGWとパブリック用ルートはTerraformへ反映済み。AWS環境との重複は未確認。
 
 命名は `種類-efs-用途-AZ` とし、AZは `1a`・`1c` のように数字を含める。用途・AZが不要な場合は省略する。AWS上の表示名は `Name` タグで付け、Terraform内の参照名はアンダースコアを使う。
 
 | 対象 | Nameタグ | Terraform参照名 | CIDR | AZ |
 |---|---|---|---|---|
 | VPC | `vpc-efs` | `aws_vpc.efs` | `10.30.0.0/16` | — |
+| Public subnet A | `subnet-efs-public-1a` | `aws_subnet.public_1a` | `10.30.0.0/24` | `ap-northeast-1a` |
+| Public subnet C | `subnet-efs-public-1c` | `aws_subnet.public_1c` | `10.30.1.0/24` | `ap-northeast-1c` |
 | Private subnet A | `subnet-efs-private-1a` | `aws_subnet.private_1a` | `10.30.10.0/24` | `ap-northeast-1a` |
 | Private subnet C | `subnet-efs-private-1c` | `aws_subnet.private_1c` | `10.30.11.0/24` | `ap-northeast-1c` |
 | Route table A | `rtb-efs-private-1a` | `aws_route_table.private_1a` | — | — |
 | Route table C | `rtb-efs-private-1c` | `aws_route_table.private_1c` | — | — |
 
-ルートテーブルの個別定義・関連付けは今回の実装対象外。構築時はVPCのメインルートテーブルが暗黙に使われる。
+Public subnetは共通の `rtb-efs-public` に関連付け、`0.0.0.0/0` を `igw-efs` へ向ける定義を追加。Private subnetの個別ルートテーブルは未定義で、VPCのメインルートテーブルが暗黙に使われる。
 
 既存ECSのローカル定義は `10.20.0.0/16` のため、別の `10.30.0.0/16` を提案。サブネットはVPCの範囲内で重複しない2つの `/24` とする。ECSタスクの配置先とマウントターゲットは同じAZのサブネットを使う案。Fargateはawsvpcネットワークモードを使用する。EFSファイルシステム自体にサブネットCIDRを割り当てる意味ではない。
 
-VPCの `/16` は拡張余地を持たせた学習用の案で、今回の台数から必要になる大きさではない。実際の接続先ネットワークとの重複や利用可能なAZは構築前に確認する。イメージ取得・ログ送信はVPCエンドポイントを使う案とし、Public subnet・NAT Gatewayは追加しない。タスクの操作・確認方法と通信設定の詳細は今後設計する。
+VPCの `/16` は拡張余地を持たせた学習用の案で、今回の台数から必要になる大きさではない。実際の接続先ネットワークとの重複や利用可能なAZは構築前に確認する。イメージ取得・ログ送信はVPCエンドポイントを使う案とし、ALB用に2つのPublic subnetを追加した。CIDRは1aを `10.30.0.0/24`、1cを `10.30.1.0/24` で定義。全体図ではCIDRを省略し、通信の流れを優先している。Public subnet、IGW、ルートと関連付けはTerraformに定義済み。NAT Gatewayは使わない。HTTPS・アクセス制限・通信設定の詳細は今後設計する。
 
 ## 推奨する題材（検討中）
 
 **複数の業務アプリが使う共有ファイル基盤を、架空データで構築・検証する。**
 
-架空の「帳票作成処理」と「帳票参照処理」が同じファイルを利用する。帳票作成用と帳票参照用のECSタスクから同じEFSを利用し、一方で作ったファイルをもう一方で読めることを確認する。業務アプリの本格実装や画面作成は必須にせず、最初はファイル操作で動作を理解する。
+当初の帳票作成・参照案から、資料の登録・閲覧APIを常駐するECSサービスで動かす題材へ整理した。登録側がEFSに保存した架空のファイルを、閲覧側が読み出す。構成図では1つのALBと2つのターゲットグループを使い、`/upload/*` を登録側、`/files/*` を閲覧側へ振り分ける案を示す。現在のアプリはヘルスチェックAPIのみで、登録・閲覧処理は未実装。各サービス1タスクの配置案であり、同じサービスの冗長化はしていない。
 
 フォルダ構成・容量・利用アプリの対応を、共有範囲や権限を考える材料として扱う。公開情報と架空データによる個人検証であり、実在する顧客環境は再現しない。
 
@@ -86,12 +88,12 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 ## イメージ取得・ログ送信の構成案
 
-構成図は1ファイル・3ページ構成。01はEFS共有、02はECRからのイメージ取得とCloudWatch Logsへの送信、03はSGと許可ルールを示す。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
+構成図は1ファイル・3ページ構成。01はALBから登録・閲覧サービスとEFSへの経路、02はECRからのイメージ取得とCloudWatch Logsへの送信、03は現在定義済みのSGと許可ルールを示す。ALB用のSG・許可ルールは次工程。02は同じ2タスクの通信をまとめた論理図で、タスクやVPCを追加する意味ではない。
 
 - ECR用のInterface endpointは `ecr.api` と `ecr.dkr` の2種類。Private DNSを有効にし、各エンドポイントのENIは1aのサブネットだけに配置する。1cのタスクも1aの入口を利用する。
 - ECRのイメージレイヤーはS3から取得するため、S3 Gateway endpointを両サブネットが暗黙に利用するVPCのメインルートテーブルへ関連付ける。将来個別のルートテーブルを作る場合は関連付け先を変更する。図のS3はECR管理の保存先で、アプリ用バケットの追加ではない。
 - `awslogs`による送信には `logs` Interface endpointを使用し、1aのサブネットだけに配置する。
-- Interface endpointの図形は論理リソースを表す。図は変更前の2AZ配置案で、Terraformの現在の配置先は1aのみ。S3 Gateway endpointはサブネット内のENIではなく、ルートテーブル経由で利用する。
+- Interface endpointの図形は論理リソースを表す。図とTerraformの配置先はともに1aのみ。S3 Gateway endpointはサブネット内のENIではなく、ルートテーブル経由で利用する。
 - endpointのSecurity Groupは関連付け済み。エンドポイントポリシーの絞り込み、イメージの事前push、利用費用の確認はAWS構築前に行う。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
