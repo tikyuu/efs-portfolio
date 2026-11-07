@@ -33,11 +33,14 @@ function downloadSample(file) {
 
 export default function App() {
   const input = useRef(null);
+  const uploadInProgress = useRef(false);
   const [selected, setSelected] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState('');
 
   function choose(files) {
+    if (uploadInProgress.current) return;
     if (!files?.length) return;
     if (files.length > 1) {
       setNotice('ファイルは1つずつ選択してください。');
@@ -48,9 +51,46 @@ export default function App() {
   }
 
   function clear() {
+    if (uploadInProgress.current) return;
     setSelected(null);
     setNotice('');
     if (input.current) input.current.value = '';
+  }
+
+  async function upload() {
+    if (!selected || uploadInProgress.current) return;
+    const file = selected;
+    if (file.size > 10 * 1024 * 1024) {
+      setNotice('ファイルは10 MiB以内にしてください。');
+      return;
+    }
+
+    uploadInProgress.current = true;
+    setUploading(true);
+    setNotice('');
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      // 同じサイトのALBを通じて、Pythonの登録APIへ送る。
+      const response = await fetch('/upload/', { method: 'POST', body });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        setNotice(typeof result?.detail === 'string' ? result.detail : '登録できませんでした。');
+        return;
+      }
+      if (typeof result?.filename !== 'string') {
+        setNotice('登録結果を確認できませんでした。保存済みの場合があります。');
+        return;
+      }
+      setNotice(`${result.filename} を登録しました。`);
+      setSelected(null);
+      if (input.current) input.current.value = '';
+    } catch {
+      setNotice('通信に失敗しました。保存済みの場合もあるため、登録結果を確認してください。');
+    } finally {
+      uploadInProgress.current = false;
+      setUploading(false);
+    }
   }
 
   return (
@@ -76,16 +116,16 @@ export default function App() {
               onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
               onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }}
               onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files); }}>
-              <input ref={input} className="visually-hidden" id="file-input" type="file" tabIndex={-1} onChange={(event) => choose(event.target.files)} />
+              <input ref={input} className="visually-hidden" id="file-input" type="file" disabled={uploading} tabIndex={-1} onChange={(event) => choose(event.target.files)} />
               <div className="upload-symbol"><Icon kind={selected ? 'file' : 'upload'} /></div>
               {selected ? (
-                <div className="selected-file" aria-live="polite"><strong>{selected.name}</strong><span>{formatSize(selected.size)}</span><button className="text-button clear-button" onClick={clear}><Icon kind="close" />選び直す</button></div>
+                <div className="selected-file" aria-live="polite"><strong>{selected.name}</strong><span>{formatSize(selected.size)}</span><button className="text-button clear-button" disabled={uploading} onClick={clear}><Icon kind="close" />選び直す</button></div>
               ) : (
                 <><p className="drop-label">ここにファイルを置く</p><span className="drop-or">または</span><button className="choose-button" onClick={() => input.current?.click()}>ファイルを選択<span aria-hidden="true">↗</span></button></>
               )}
             </div>
-            <button className="register-button" disabled aria-describedby="upload-note">登録する<span aria-hidden="true">→</span></button>
-            <p id="upload-note" className="subtle-note">登録はAPI接続後に利用できます。</p>
+            <button className="register-button" disabled={!selected || uploading} onClick={upload} aria-busy={uploading} aria-describedby="upload-note">{uploading ? '登録中…' : '登録する'}<span aria-hidden="true">→</span></button>
+            <p id="upload-note" className="subtle-note">1ファイル10 MiBまで。同名ファイルは上書きしません。</p>
             <p className="notice" role="status">{notice}</p>
           </section>
 
@@ -104,7 +144,7 @@ export default function App() {
           </section>
         </div>
       </main>
-      <footer><span>SHARED FILE LIBRARY</span><span>サンプル表示 · ファイルは送信されません</span></footer>
+      <footer><span>SHARED FILE LIBRARY</span><span>一覧はサンプル表示</span></footer>
     </div>
   );
 }
