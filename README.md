@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスターを定義済み。FastAPIのヘルスチェックAPIを作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスターを定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -100,7 +100,18 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 - `infra/ecs.tf`：クラスター `ecs-efs-cluster` を1つ定義。サービス・タスク定義は未実装。
 - `app/main.py`：FastAPIアプリの `GET /health` が `{"status": "ok"}` を返す。EFSへの接続を検査するAPIではない。
-- `app/requirements.txt`：FastAPIとUvicornのバージョンを固定。Dockerfile、イメージのビルド、CSVの登録・閲覧処理は未実装。
+- `app/requirements.txt`：FastAPIとUvicornのバージョンを固定。`app/Dockerfile` はPython 3.14の環境へ依存ライブラリとコードをコピーし、Uvicornをポート8000で起動する。CSVの登録・閲覧処理は未実装。
+
+## ローカルのコンテナ起動
+
+リポジトリのルートで実行する。ビルド対象は `./app`。ECRへのpushやAWSへのデプロイは行わない。
+
+```bash
+docker build -t ecr-efs:local ./app
+docker run --rm -p 127.0.0.1:8000:8000 ecr-efs:local
+```
+
+別のターミナルから `curl http://127.0.0.1:8000/health` を実行すると `{"status":"ok"}` が返る。停止は起動したターミナルでCtrl+C。現在はヘルスチェックのみで、EFSはマウントしていない。
 
 ## イメージとログの保存先
 
