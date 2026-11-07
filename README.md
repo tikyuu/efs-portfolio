@@ -109,6 +109,12 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
 
+## DNSの定義
+
+`infra/dns.tf` に `tikyuu.click` のパブリックホストゾーンと、`efs.tikyuu.click` をALBに向けるAレコード（エイリアス）を定義した。ALBのIPを固定値で書かず、`aws_lb.efs.dns_name` と `aws_lb.efs.zone_id` を参照する。`evaluate_target_health = true` を指定しているが、今回の単一レコードのシンプルルーティングではDNS回答による正常系への切り替えは行わない。
+
+Terraformの整形・定義検証は成功。AWSへの適用は未実施。ホストゾーン作成だけではドメイン登録側のネームサーバーは切り替わらないため、実際のDNS委任は既存設定・影響・費用を確認してから別途行う。証明書・所有確認用レコードは未定義。
+
 ## ALB本体
 
 `infra/alb.tf` にインターネット向けの `alb-efs` を定義。IPv4、Public subnetの1a・1c、ALB用SGを指定し、IGW接続後に作成する。共通ターゲットグループ `tg-efs-app` を1つ定義。HTTP・8000、種類 `ip`、ヘルスチェック `/health`（200）を指定する。実際のタスク登録はECSサービス実装時に行う。リスナー・証明書は後続の工程。Terraformの整形・定義検証は確認済みで、AWSへの適用は未実施。
