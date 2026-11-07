@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイントを定義済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリとロググループを定義済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -95,6 +95,13 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 - endpointのSecurity Groupは関連付け済み。ポリシーの絞り込み、タスク実行ロール、イメージの事前push、利用費用の確認はAWS構築前に行う。今回の通信にはNAT Gatewayを使わない案で、任意のインターネット接続を提供する構成ではない。
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
+
+## イメージとログの保存先
+
+- `infra/ecr.tf`：非公開ECRリポジトリ `ecr-efs` を定義。タグは `IMMUTABLE` とし、既存タグへの上書きを禁止する。イメージのビルド・pushと、自動削除の保持ルールは未実施。
+- `infra/logs.tf`：ロググループ `/ecs/efs` を定義。ログの保持期間は30日。ECSタスクからのログ送信設定は未実装。
+
+Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施。
 
 ## EFS本体とマウントターゲット
 
