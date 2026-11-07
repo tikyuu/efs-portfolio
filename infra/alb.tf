@@ -36,3 +36,18 @@ resource "aws_lb_target_group" "app" {
     Name = "tg-efs-app"
   }
 }
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.efs.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09"
+
+  # 証明書の発行が完了してから、リスナーを作成する。
+  certificate_arn = aws_acm_certificate_validation.efs.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+}
