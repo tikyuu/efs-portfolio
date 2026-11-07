@@ -1,6 +1,6 @@
 # EFSを理解するポートフォリオ
 
-開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
+開始日：2026年11月7日。現在地：Terraformのバージョン・Provider設定、VPCと2つのサブネット、SGと許可ルール、EFS本体と2つのマウントターゲット、4種類のVPCエンドポイント、ECRリポジトリ、ロググループ、ECSクラスター、タスク実行ロールと登録・閲覧側のタスク定義を定義済み。FastAPIのヘルスチェックAPIとPython 3.14ベースのDockerfileを作成済み。AWS未構築。
 
 ## 目的と進め方
 
@@ -98,7 +98,7 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 ## ECSクラスターとアプリの土台
 
-- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と登録側のタスク定義 `ecs-efs-writer-task` を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは `/ecs/efs`。ECSサービス・参照側のタスク定義・EFSマウントは未実装。
+- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と、登録側 `ecs-efs-writer-task`・閲覧側 `ecs-efs-reader-task` のタスク定義を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは登録側 `/ecs/efs/writer`・閲覧側 `/ecs/efs/reader` に分ける。現在は同じヘルスチェック用イメージで、登録・閲覧のアプリ処理は未実装。ECSサービス・EFSマウントは未実装。
 - `infra/iam.tf`：実行ロール `iam-efs-task-execution-role` を定義し、ECSタスクへの信頼設定とAWS管理の `AmazonECSTaskExecutionRolePolicy` を関連付ける。ECR取得とログ送信を許可するポリシーで、アプリ用のタスクロールとは別。
 
 タスク定義のTerraform検証は成功。AWSへのplan・apply、イメージの事前push、タスク起動は未実施。`v1` のイメージ登録が必要で、将来ビルドするイメージのCPUアーキテクチャもタスクと合わせる。
@@ -119,7 +119,7 @@ docker run --rm -p 127.0.0.1:8000:8000 ecr-efs:local
 ## イメージとログの保存先
 
 - `infra/ecr.tf`：非公開ECRリポジトリ `ecr-efs` を定義。タグは `IMMUTABLE` とし、既存タグへの上書きを禁止する。イメージのビルド・pushと、自動削除の保持ルールは未実施。
-- `infra/logs.tf`：ロググループ `/ecs/efs` を定義。ログの保持期間は30日。ECSタスクからのログ送信設定は未実装。
+- `infra/logs.tf`：登録側 `/ecs/efs/writer` と閲覧側 `/ecs/efs/reader` の2つのロググループを定義。保持期間はいずれも30日。各タスク定義に対応する送信先を設定済み。実環境での送信確認は未実施。
 
 Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施。
 
