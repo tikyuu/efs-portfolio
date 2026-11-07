@@ -52,6 +52,7 @@ h2 { font-size: 14px; letter-spacing: .12em; font-weight: 500; margin: 0; }
 .notice:empty { display: none; }
 .file-count { margin-left: auto; font-size: 10px; color: var(--muted); white-space: nowrap; }
 .refresh-button { display: flex; padding: 4px; border: 0; background: none; color: #949c8d; }
+.download-button:disabled { opacity: .4; }
 .refresh-button svg { width: 16px; height: 16px; }
 .file-list { list-style: none; margin: 0; padding: 0; }
 .file-row { display: flex; align-items: center; gap: 20px; padding: 27px 0; border-bottom: 1px solid var(--line); }
@@ -61,7 +62,7 @@ h2 { font-size: 14px; letter-spacing: .12em; font-weight: 500; margin: 0; }
 .file-name { display: block; font-size: 14px; letter-spacing: .025em; overflow-wrap: anywhere; line-height: 1.6; }
 .file-meta { display: flex; gap: 9px; margin-top: 9px; font-size: 10px; color: var(--muted); letter-spacing: .06em; }
 .download-button { margin-left: auto; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: #4e6550; }
-.download-button:hover { background: #e6eadf; border-color: #d6ddcd; }
+.download-button:not(:disabled):hover { background: #e6eadf; border-color: #d6ddcd; }
 .library-bottom { margin-top: auto; padding-top: 34px; display: flex; align-items: center; gap: 10px; font-size: 10px; letter-spacing: .08em; color: var(--muted); }
 .small-ring { width: 8px; height: 8px; border: 1px solid #8f9e7e; border-radius: 50%; }
 .selected-file { min-width: 0; max-width: 100%; display: flex; align-items: center; flex-direction: column; gap: 10px; }
