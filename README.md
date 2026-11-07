@@ -98,7 +98,7 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 ## ECSクラスターとアプリの土台
 
-- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と、登録側 `ecs-efs-writer-task`・閲覧側 `ecs-efs-reader-task` のタスク定義を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは登録側 `/ecs/efs/writer`・閲覧側 `/ecs/efs/reader` に分ける。現在は同じヘルスチェック用イメージで、登録・閲覧のアプリ処理は未実装。ECSサービス・EFSマウントは未実装。
+- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と、登録側 `ecs-efs-writer-task`・閲覧側 `ecs-efs-reader-task` のタスク定義を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは登録側 `/ecs/efs/writer`・閲覧側 `/ecs/efs/reader` に分ける。現在は同じヘルスチェック用イメージで、登録・閲覧のアプリ処理は未実装。両タスクで同じEFSを `/mnt/shared` にマウントする定義を追加済み。登録側は `readOnly = false`、閲覧側は `readOnly = true`。ECSサービスは未実装。
 - `infra/iam.tf`：実行ロール `iam-efs-task-execution-role` を定義し、ECSタスクへの信頼設定とAWS管理の `AmazonECSTaskExecutionRolePolicy` を関連付ける。ECR取得とログ送信を許可するポリシーで、アプリ用のタスクロールとは別。
 
 タスク定義のTerraform検証は成功。AWSへのplan・apply、イメージの事前push、タスク起動は未実施。`v1` のイメージ登録が必要で、将来ビルドするイメージのCPUアーキテクチャもタスクと合わせる。
@@ -127,7 +127,7 @@ Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施
 
 `infra/efs.tf` に保存データの暗号化を有効にしたRegional EFSを1つ定義。`private_1a`・`private_1c` の各サブネットに同じEFSへのマウントターゲットを1つずつ配置し、両方に `aws_security_group.mount` を関連付ける。
 
-Terraformのfmt・validateは確認済み。AWSへのplan・applyと実環境での通信確認は未実施。Fargateのマウント設定、通信の暗号化、IAM・ファイル権限、バックアップ等は今後の工程。
+Terraformのfmt・validateは確認済み。AWSへのplan・applyと実環境での通信確認は未実施。Fargateの両タスク定義にEFSボリュームとマウント先を指定し、通信の暗号化を有効化済み。EFS内の `/` をコンテナ内の `/mnt/shared` に対応させる。IAM認証・ファイル権限・バックアップ等は今後の工程。読み取り専用指定は閲覧コンテナのマウント設定であり、EFS側のIAMによる権限制限はまだ行っていない。
 
 ## セキュリティグループ
 

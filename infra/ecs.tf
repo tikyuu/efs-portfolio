@@ -14,11 +14,29 @@ resource "aws_ecs_task_definition" "writer" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.task_execution.arn
 
+  volume {
+    name = "efs-shared"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.efs.id
+      root_directory     = "/"
+      transit_encryption = "ENABLED"
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name      = "efs-writer"
       image     = "${aws_ecr_repository.efs.repository_url}:v1"
       essential = true
+
+      mountPoints = [
+        {
+          sourceVolume  = "efs-shared"
+          containerPath = "/mnt/shared"
+          readOnly      = false
+        }
+      ]
 
       portMappings = [
         {
@@ -51,11 +69,29 @@ resource "aws_ecs_task_definition" "reader" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.task_execution.arn
 
+  volume {
+    name = "efs-shared"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.efs.id
+      root_directory     = "/"
+      transit_encryption = "ENABLED"
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name      = "efs-reader"
       image     = "${aws_ecr_repository.efs.repository_url}:v1"
       essential = true
+
+      mountPoints = [
+        {
+          sourceVolume  = "efs-shared"
+          containerPath = "/mnt/shared"
+          readOnly      = true
+        }
+      ]
 
       portMappings = [
         {
