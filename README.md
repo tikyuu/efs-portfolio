@@ -10,7 +10,7 @@ AWSでEFSを構築し、仕組みと設計理由を説明できるようにな�
 
 ## 構成図
 
-[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB・ECSサービスは未実装です。
+[EFS共有ファイル基盤の構成図（draw.io）](docs/architecture/efs-architecture.drawio)。AWS未構築の構成案です。ALBから登録・閲覧の2つのECSサービスへ振り分け、同じEFSを利用する構成へ更新済みです。パブリックサブネットとIGWへの経路は定義済みで、ALB本体は定義済みで、リスナー・ターゲットグループ・ECSサービスは未実装です。
 
 AWS公式アイコン（2026年7月31日版、11月7日確認）はファイル内に埋め込み済みで、このファイルだけで開いて編集できます。管理接続・権限・バックアップの詳細は今後設計します。
 
@@ -98,6 +98,10 @@ FargateのEFS対応はLinuxプラットフォーム1.4.0以降。1ページ目�
 
 公式情報：[ECRのVPCエンドポイント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html)（2026年11月7日確認）。`infra/endpoints.tf` にInterface 3つとS3 Gateway 1つを定義済み。Interfaceは既存のendpoint SGを利用し、1a障害時には両AZのタスクのイメージ取得・ログ送信に影響する。エンドポイントポリシーの絞り込みは未実施で、現時点は既定のポリシーを使用する。サービスへのアクセスには別途IAM権限が必要。AWSへのplan・applyと通信確認は未実施。
 
+## ALB本体
+
+`infra/alb.tf` にインターネット向けの `alb-efs` を定義。IPv4、Public subnetの1a・1c、ALB用SGを指定し、IGW接続後に作成する。リスナー・ターゲットグループ・証明書は後続の工程。Terraformの整形・定義検証は確認済みで、AWSへの適用は未実施。
+
 ## ECSクラスターとアプリの土台
 
 - `infra/ecs.tf`：クラスター `ecs-efs-cluster` と、登録側 `ecs-efs-writer-task`・閲覧側 `ecs-efs-reader-task` のタスク定義を定義。Fargate、0.25 vCPU・512 MiB、awsvpc、コンテナのポート8000を指定。イメージは `ecr-efs:v1`、ログは登録側 `/ecs/efs/writer`・閲覧側 `/ecs/efs/reader` に分ける。現在は同じヘルスチェック用イメージで、登録・閲覧のアプリ処理は未実装。両タスクで同じEFSを `/mnt/shared` にマウントする定義を追加済み。登録側は `readOnly = false`、閲覧側は `readOnly = true`。ECSサービスは未実装。
@@ -139,14 +143,14 @@ Terraformのfmt・validateは確認済み。AWSへのplan・applyと実環境で
 
 | SG | 関連付け先（今後作成） | インバウンド | アウトバウンド |
 |---|---|---|---|
-| `sg-efs-alb` | ALB（未実装） | 指定した接続元CIDRからTCP 443 | task SGへTCP 8000 |
+| `sg-efs-alb` | ALB | 指定した接続元CIDRからTCP 443 | task SGへTCP 8000 |
 | `sg-efs-task` | Fargateタスク | alb SGからTCP 8000 | mount SGへTCP 2049、endpoint SGへTCP 443、東京のS3プレフィックスリストへTCP 443 |
 | `sg-efs-mount` | EFSマウントターゲット | task SGからTCP 2049 | 新規通信の許可なし |
 | `sg-efs-endpoint` | ECR API・DKR、LogsのInterface endpoint | task SGからTCP 443 | 新規通信の許可なし |
 
 SGはステートフルなので、許可した通信への応答用ルールは不要。タスクのTCP 8000はALBのSGから受信を許可する。ファイル共有のためのタスク間通信は許可しない。SGは通信を制御するもので、ファイルの読み書き権限は後続のIAM・POSIX権限等で設計する。
 
-利用者の接続元は `infra/variables.tf` の `alb_allowed_cidr` にIPv4 CIDRで指定する（例：検証用PCのグローバルIP/32）。既定値はなく、plan/apply時に指定が必要。実際のIPを公開リポジトリへコミットしない。ALB・リスナー・HTTPS証明書は未実装で、SGだけではHTTPS通信は成立しない。
+利用者の接続元は `infra/variables.tf` の `alb_allowed_cidr` にIPv4 CIDRで指定する（例：検証用PCのグローバルIP/32）。既定値はなく、plan/apply時に指定が必要。実際のIPを公開リポジトリへコミットしない。ALB本体は定義済み。リスナー・HTTPS証明書は未実装で、SGだけではHTTPS通信は成立しない。
 
 S3 Gateway endpointにSGは付けない。`data.aws_prefix_list.s3` はAWS管理の既存の宛先一覧を参照し、S3バケットを作成する定義ではない。実際の値の取得はplan/apply時にAWSへの照会が必要。SGの定義だけでは通信経路やサービスへのアクセス権は完成せず、エンドポイントポリシーやEFSのIAM認証等は今後の工程。
 
