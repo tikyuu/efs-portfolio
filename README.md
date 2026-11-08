@@ -232,7 +232,9 @@ AWSの費用を発生させずに理解を進めるため、当面はapplyや公
 
 ECS自身がALBの転送先を切り替える方式を検討し、`infra/iam.tf` に `iam-efs-ecs-load-balancer-role` とAWS管理ポリシー `AmazonECSInfrastructureRolePolicyForLoadBalancers` の関連付けを定義済み。ロールを使う相手は `ecs.amazonaws.com`。GitHub Actions用ロール・タスク実行ロールとは別の役割。
 
-現在はIAMロールの準備のみ。ターゲットグループは既存の `tg-efs-app` が1つで、2つ目のTG・リスナーの転送設定・ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。ロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
+`infra/alb.tf` に2つ目のターゲットグループ `tg-efs-app-alternate` を定義済み。既存の `tg-efs-app` と同じくHTTP・8000番ポート・IPターゲットを使い、`/health` の200応答で正常性を確認する。更新時にもう一方の版のタスクを登録するための準備で、現時点ではリスナーやECSサービスには未関連付け。
+
+リスナーの転送設定・ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。IAMロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
 
 ## EFS本体とマウントターゲット
 
