@@ -204,7 +204,7 @@ Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施
 
 `infra/github_actions.tf` にGitHubのOIDCプロバイダーとロール `iam-efs-github-actions-role` を定義。AWS向けの身元情報であることと、今回のリポジトリのmainであることを完全一致で確認する。所有者・リポジトリのIDを含む `sub` の形式はGitHub APIで確認済み。ECSのタスク実行ロールとは別のロールを使う。
 
-権限はECRの認証トークン取得と、`ecr-efs` へのイメージの確認・送信に限定する。認証トークン取得はリポジトリ単位で制限できないため `Resource = "*"`、イメージ操作は `aws_ecr_repository.efs.arn` を指定する。現時点ではECS操作・リポジトリ削除の権限は付与していない。ECSへのデプロイに必要な権限は次の工程で追加する。
+権限はECRの認証トークン取得と、`ecr-efs` へのイメージの確認・送信に限定する。認証トークン取得はリポジトリ単位で制限できないため `Resource = "*"`、イメージ操作は `aws_ecr_repository.efs.arn` を指定する。ECS用の別のインラインポリシーも同じロールへ定義済み。サービスの取得・更新は今回のECSサービス、新しいタスク定義の登録は今回のファミリー、`iam:PassRole` は既存のタスク実行ロールと `ecs-tasks.amazonaws.com` に限定する。`DescribeTaskDefinition` はリソース単位で制限できないため `Resource = "*"` とする。削除権限は付けない。
 
 Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の実行、ECRへのpushは未実施。手動実行するGitHub Actionsワークフローは定義済みで、実行は未実施。AWS適用前に、同じGitHub OIDCプロバイダーがアカウントに既存か確認し、既存なら重複作成せず管理方法を決める。
 
@@ -216,7 +216,7 @@ Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の�
 
 手動実行時の `deploy` チェックは既定でオフ。オフの場合はECRへのpushまで実行する。オンの場合は、今回のECSサービスが使っているタスク定義を取得し、`task-definition.json` としてUbuntu環境へ保存する。イメージ指定だけを今回pushしたものへ差し替え、新しいタスク定義を登録してECSサービスへ反映し、サービスの安定を待つ。現在のタスク定義が取得できない場合はエラーで停止する。
 
-初回構築前は `deploy` をオフにし、pushしたコミットIDのタグをTerraformの `image_tag` に渡してECSを作成する。構築後、アプリを更新する際にオンで使う。現時点ではECS取得・登録・更新およびIAMロールを渡す権限が未追加のため、オンでの実行準備は未完了。
+初回構築前は `deploy` をオフにし、pushしたコミットIDのタグをTerraformの `image_tag` に渡してECSを作成する。構築後、アプリを更新する際にオンで使う。ECS取得・登録・更新およびIAMロールを渡す権限はTerraformに定義済み。実行前にAWS上への適用が必要で、実際の権限評価・デプロイは未検証。
 
 actionlintによる静的検証は成功。ワークフローの実行、AWSへの認証、ECRへの送信、タスク定義の取得・登録、ECSの更新と安定待ちは未検証。
 
@@ -224,7 +224,7 @@ actionlintによる静的検証は成功。ワークフローの実行、AWSへ�
 
 初回のECSサービス作成はTerraformで行い、その後のアプリ更新ではGitHub Actionsが新しいタスク定義を登録してサービスを更新する方針。`aws_ecs_service.app` に `ignore_changes = [task_definition]` を指定し、作成後に外部で切り替えたタスク定義をTerraformで戻さないようにする。タスク定義のCPU・マウント設定などをTerraformで変更しても、サービスへの反映には別途デプロイが必要になる。
 
-初回構築で使うタグを受け取る `image_tag` 変数を、タスク定義のイメージ指定へ接続済み（既定値なし）。Terraform実行時に `-var='image_tag=ECRに保存済みのタグ'` などで明示する。GitHub ActionsがpushするタグはコミットIDで、その値を指定する。タグを自動取得する処理ではない。作成後のアプリ更新はGitHub Actionsが担当するため、`image_tag` を変更してapplyするだけでは既存サービスのタスク定義は切り替わらない。GitHub ActionsのECS更新手順は記載済み。ECS操作用の追加IAM権限は後続工程。AWSへの適用や動作検証は未実施。
+初回構築で使うタグを受け取る `image_tag` 変数を、タスク定義のイメージ指定へ接続済み（既定値なし）。Terraform実行時に `-var='image_tag=ECRに保存済みのタグ'` などで明示する。GitHub ActionsがpushするタグはコミットIDで、その値を指定する。タグを自動取得する処理ではない。作成後のアプリ更新はGitHub Actionsが担当するため、`image_tag` を変更してapplyするだけでは既存サービスのタスク定義は切り替わらない。GitHub ActionsのECS更新手順は記載済み。ECS操作用の追加IAM権限もTerraformに定義済み。AWSへの適用や動作検証は未実施。
 
 ## EFS本体とマウントターゲット
 
