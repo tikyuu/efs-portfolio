@@ -2,6 +2,11 @@ name: Publish image
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "ECSも更新する（初回構築前はオフ）"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,3 +43,43 @@ jobs:
           REPOSITORY: ecr-efs
           IMAGE_TAG: ${{ github.sha }}
         run: docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+
+      - name: Download current task definition
+        if: ${{ inputs.deploy }}
+        env:
+          ECS_CLUSTER: ecs-efs-cluster
+          ECS_SERVICE: ecs-efs-app-service
+        run: |
+          TASK_DEFINITION_ARN=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          if [ -z "$TASK_DEFINITION_ARN" ] || [ "$TASK_DEFINITION_ARN" = "None" ]; then
+            echo '::error::ECSサービスのタスク定義を取得できません。初回構築が完了しているか確認してください。'
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEFINITION_ARN" \
+            --query taskDefinition \
+            --output json > task-definition.json
+
+      - name: Update image in task definition
+        if: ${{ inputs.deploy }}
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
+        with:
+          task-definition: task-definition.json
+          container-name: efs-app
+          image: ${{ steps.login-ecr.outputs.registry }}/ecr-efs:${{ github.sha }}
+
+      - name: Deploy to Amazon ECS
+        if: ${{ inputs.deploy }}
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          cluster: ecs-efs-cluster
+          service: ecs-efs-app-service
+          wait-for-service-stability: true
