@@ -200,6 +200,14 @@ docker run --rm -p 127.0.0.1:8000:8000 ecr-efs:local
 
 Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施。
 
+## GitHub ActionsからECRへ送信するための権限
+
+`infra/github_actions.tf` にGitHubのOIDCプロバイダーとロール `iam-efs-github-actions-role` を定義。AWS向けの身元情報であることと、今回のリポジトリのmainであることを完全一致で確認する。所有者・リポジトリのIDを含む `sub` の形式はGitHub APIで確認済み。ECSのタスク実行ロールとは別のロールを使う。
+
+権限はECRの認証トークン取得と、`ecr-efs` へのイメージの確認・送信に限定する。認証トークン取得はリポジトリ単位で制限できないため `Resource = "*"`、イメージ操作は `aws_ecr_repository.efs.arn` を指定する。ECS更新・リポジトリ削除の権限は付与しない。
+
+Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の実行、ECRへのpushは未実施。手動実行するGitHub Actionsワークフローは次の工程。AWS適用前に、同じGitHub OIDCプロバイダーがアカウントに既存か確認し、既存なら重複作成せず管理方法を決める。
+
 ## EFS本体とマウントターゲット
 
 `infra/efs.tf` に保存データの暗号化を有効にしたRegional EFSを1つ定義。`private_1a`・`private_1c` の各サブネットに同じEFSへのマウントターゲットを1つずつ配置し、両方に `aws_security_group.mount` を関連付ける。
