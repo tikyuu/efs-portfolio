@@ -1,0 +1,15 @@
+# ビルドに必要なアプリのファイルだけを対象にする。
+**
+!frontend/
+!frontend/**
+!app/
+!app/Dockerfile
+!app/main.py
+!app/requirements.txt
+
+# PC側の依存ライブラリ・生成物・ローカル設定は持ち込まない。
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/.DS_Store
