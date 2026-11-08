@@ -66,3 +66,46 @@ resource "aws_iam_role_policy" "github_actions_ecr_push" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "github_actions_ecs_deploy" {
+  name = "iam-efs-github-actions-ecs-deploy-policy"
+  role = aws_iam_role.github_actions.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # サービスの取得・更新・安定待ちは、今回のサービスだけに限定する。
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeServices",
+          "ecs:UpdateService",
+        ]
+        Resource = aws_ecs_service.app.id
+      },
+      {
+        # この読み取り操作はリソース単位の制限に対応していない。
+        Effect   = "Allow"
+        Action   = "ecs:DescribeTaskDefinition"
+        Resource = "*"
+      },
+      {
+        # 新しい版の登録は、今回のタスク定義ファミリーだけに限定する。
+        Effect   = "Allow"
+        Action   = "ecs:RegisterTaskDefinition"
+        Resource = "${aws_ecs_task_definition.app.arn_without_revision}:*"
+      },
+      {
+        # ECSへ渡せるロールと、渡す相手の両方を限定する。
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.task_execution.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
