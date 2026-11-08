@@ -232,9 +232,11 @@ AWSの費用を発生させずに理解を進めるため、当面はapplyや公
 
 ECS自身がALBの転送先を切り替える方式を検討し、`infra/iam.tf` に `iam-efs-ecs-load-balancer-role` とAWS管理ポリシー `AmazonECSInfrastructureRolePolicyForLoadBalancers` の関連付けを定義済み。ロールを使う相手は `ecs.amazonaws.com`。GitHub Actions用ロール・タスク実行ロールとは別の役割。
 
-`infra/alb.tf` に2つ目のターゲットグループ `tg-efs-app-alternate` を定義済み。既存の `tg-efs-app` と同じくHTTP・8000番ポート・IPターゲットを使い、`/health` の200応答で正常性を確認する。更新時にもう一方の版のタスクを登録するための準備で、現時点ではリスナーやECSサービスには未関連付け。
+`infra/alb.tf` に2つ目のターゲットグループ `tg-efs-app-alternate` を定義済み。既存の `tg-efs-app` と同じくHTTP・8000番ポート・IPターゲットを使い、`/health` の200応答で正常性を確認する。更新時にもう一方の版のタスクを登録するための準備で、現時点ではECSサービスの切り替え先としては未指定。
 
-リスナーの転送設定・ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。IAMロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
+HTTPSリスナーに全パス（`/*`）を対象とする `aws_lb_listener_rule.app` を定義。初期の転送割合は既存TGが100、追加TGが0。リスナーの既定動作は404応答とし、アプリへの転送は専用ルールへ集約する。ECSサービスは、TGとALBを関連付けるこのルールの作成を待つ。
+
+ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。IAMロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。ECSへ切り替え対象のルールを指定し、切り替え後の転送設定をTerraformが戻さないための設定も後続で行う。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
 
 ## EFS本体とマウントターゲット
 
