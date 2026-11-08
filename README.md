@@ -206,7 +206,15 @@ Terraformのfmt・validateは確認済み。AWSへの作成・変更は未実施
 
 権限はECRの認証トークン取得と、`ecr-efs` へのイメージの確認・送信に限定する。認証トークン取得はリポジトリ単位で制限できないため `Resource = "*"`、イメージ操作は `aws_ecr_repository.efs.arn` を指定する。ECS更新・リポジトリ削除の権限は付与しない。
 
-Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の実行、ECRへのpushは未実施。手動実行するGitHub Actionsワークフローは次の工程。AWS適用前に、同じGitHub OIDCプロバイダーがアカウントに既存か確認し、既存なら重複作成せず管理方法を決める。
+Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の実行、ECRへのpushは未実施。手動実行するGitHub Actionsワークフローは定義済みで、実行は未実施。AWS適用前に、同じGitHub OIDCプロバイダーがアカウントに既存か確認し、既存なら重複作成せず管理方法を決める。
+
+## イメージ公開ワークフロー
+
+`.github/workflows/publish-image.yml` は `workflow_dispatch` による手動実行のみ。GitHub上のファイルをUbuntu環境へ取得し、OIDCでAWSへ認証、DockerをECRへログインさせ、`app/Dockerfile` から `linux/amd64` 向けにビルドして `ecr-efs` へpushする。イメージのタグは実行対象のコミットID。使用するアクションはコミットSHAで固定している。
+
+実行前にECR・OIDCプロバイダー・IAMロールをAWS上に用意し、GitHubのリポジトリ変数 `AWS_ROLE_ARN` へロールのARNを登録する。信頼ポリシーに合わせ、mainを選んで実行する。長期アクセスキーは保存しない。ECRはタグの上書きを禁止しているため、同じコミットのイメージが既にある場合は再pushが失敗することがある。
+
+actionlintによる静的検証は成功。ワークフローの実行・AWSへの認証・ECRへの送信は未実施。ECSへのデプロイ処理は含めておらず、現在のタスク定義が参照する `v1` とコミットIDのタグを合わせる設定は後続工程。
 
 ## EFS本体とマウントターゲット
 
