@@ -27,7 +27,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = "efs-app"
-      image     = "${aws_ecr_repository.efs.repository_url}:v1"
+      image     = "${aws_ecr_repository.efs.repository_url}:${var.image_tag}"
       essential = true
 
       mountPoints = [
