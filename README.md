@@ -216,6 +216,12 @@ Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の�
 
 actionlintによる静的検証は成功。ワークフローの実行・AWSへの認証・ECRへの送信は未実施。ECSへのデプロイ処理は含めておらず、現在のタスク定義が参照する `v1` とコミットIDのタグを合わせる設定は後続工程。
 
+## 基盤構築とアプリ更新の分担
+
+初回のECSサービス作成はTerraformで行い、その後のアプリ更新ではGitHub Actionsが新しいタスク定義を登録してサービスを更新する方針。`aws_ecs_service.app` に `ignore_changes = [task_definition]` を指定し、作成後に外部で切り替えたタスク定義をTerraformで戻さないようにする。タスク定義のCPU・マウント設定などをTerraformで変更しても、サービスへの反映には別途デプロイが必要になる。
+
+初回構築で使うタグを受け取る `image_tag` 変数を追加済み（既定値なし）。現時点では変数の定義だけで、タスク定義のイメージはまだ固定の `v1` を参照している。変数への接続と、GitHub ActionsのECS更新処理・追加IAM権限は後続工程。AWSへの適用や動作検証は未実施。
+
 ## EFS本体とマウントターゲット
 
 `infra/efs.tf` に保存データの暗号化を有効にしたRegional EFSを1つ定義。`private_1a`・`private_1c` の各サブネットに同じEFSへのマウントターゲットを1つずつ配置し、両方に `aws_security_group.mount` を関連付ける。

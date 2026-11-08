@@ -88,6 +88,11 @@ resource "aws_ecs_service" "app" {
     container_port   = 8000
   }
 
+  # 初回は上のタスク定義を使い、作成後の切り替えはGitHub Actionsで行う。
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+
   # タスク起動に必要な入口・通信経路・権限の作成を待つ。
   depends_on = [
     aws_lb_listener.https,

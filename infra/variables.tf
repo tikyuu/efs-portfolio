@@ -1,3 +1,8 @@
+variable "image_tag" {
+  description = "ECSで使用するECRイメージのタグ"
+  type        = string
+}
+
 variable "alb_allowed_cidr" {
   description = "ALBへのHTTPS接続を許可する送信元IPv4 CIDR。検証用PCのグローバルIP/32などを指定する。"
   type        = string
