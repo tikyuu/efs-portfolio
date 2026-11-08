@@ -1,5 +1,5 @@
 variable "image_tag" {
-  description = "ECSで使用するECRイメージのタグ"
+  description = "ECSサービスの初回構築に使用する、ECRへ保存済みのイメージタグ"
   type        = string
 }
 

@@ -127,11 +127,11 @@ Terraformの整形・定義検証は成功。AWSへの申請・DNS登録・証�
 
 ## ECSクラスターとアプリの土台
 
-- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と共通のタスク定義 `ecs-efs-app-task` を定義。コンテナ名は `efs-app`。Fargate、0.25 vCPU・512 MiB、awsvpc、ポート8000、イメージ `ecr-efs:v1` を指定。ログは `/ecs/efs/app` に集約する。同じEFSを `/mnt/shared` に暗号化通信でマウントし、`readOnly = false` とする。Python側の画面配信・登録・一覧・ダウンロードは実装済み。Reactの登録・一覧・ダウンロード接続は実装済み。画面用ファイルをコンテナへ組み込み、ローカルで画面表示を確認済み。
-- `infra/ecs.tf`：サービス `ecs-efs-app-service` を定義。共通タスク定義をFargateのLinuxプラットフォーム1.4.0で2タスク維持し、1a・1cのPrivate subnetとタスク用SGを指定。Public IPは付与しない。`tg-efs-app` にコンテナ `efs-app` の8000番を登録する。AZ間の再調整を有効にし、起動後60秒のヘルスチェック猶予を設定。HTTPSリスナー、マウントターゲット、実行ロールのポリシー、VPC endpointの作成後にサービスを作る。配置結果・起動・補充・通信はAWSで未確認。イメージ `v1` の事前pushとDNS委任・証明書発行が適用時の前提。
+- `infra/ecs.tf`：クラスター `ecs-efs-cluster` と共通のタスク定義 `ecs-efs-app-task` を定義。コンテナ名は `efs-app`。Fargate、0.25 vCPU・512 MiB、awsvpc、ポート8000、イメージは `ecr-efs` と `image_tag` 変数で指定する。ログは `/ecs/efs/app` に集約する。同じEFSを `/mnt/shared` に暗号化通信でマウントし、`readOnly = false` とする。Python側の画面配信・登録・一覧・ダウンロードは実装済み。Reactの登録・一覧・ダウンロード接続は実装済み。画面用ファイルをコンテナへ組み込み、ローカルで画面表示を確認済み。
+- `infra/ecs.tf`：サービス `ecs-efs-app-service` を定義。共通タスク定義をFargateのLinuxプラットフォーム1.4.0で2タスク維持し、1a・1cのPrivate subnetとタスク用SGを指定。Public IPは付与しない。`tg-efs-app` にコンテナ `efs-app` の8000番を登録する。AZ間の再調整を有効にし、起動後60秒のヘルスチェック猶予を設定。HTTPSリスナー、マウントターゲット、実行ロールのポリシー、VPC endpointの作成後にサービスを作る。配置結果・起動・補充・通信はAWSで未確認。`image_tag` に指定するイメージの事前pushとDNS委任・証明書発行が適用時の前提。
 - `infra/iam.tf`：実行ロール `iam-efs-task-execution-role` を定義し、ECSタスクへの信頼設定とAWS管理の `AmazonECSTaskExecutionRolePolicy` を関連付ける。ECR取得とログ送信を許可するポリシーで、アプリ用のタスクロールとは別。
 
-タスク定義のTerraform検証は成功。AWSへのplan・apply、イメージの事前push、タスク起動は未実施。`v1` のイメージ登録が必要で、将来ビルドするイメージのCPUアーキテクチャもタスクと合わせる。
+タスク定義のTerraform検証は成功。AWSへのplan・apply、イメージの事前push、タスク起動は未実施。初回構築ではECRに保存済みのタグを `image_tag` に指定する。イメージのCPUアーキテクチャもタスクと合わせる。
 - `app/main.py`：FastAPIで登録・一覧・ダウンロード・画面配信・ヘルスチェックを実装。処理の詳細は次節を参照。
 - `app/requirements.txt`：FastAPI・Uvicorn・ファイル受信用のpython-multipartのバージョンを固定。`app/Dockerfile` はPython 3.14の環境へ依存ライブラリとコードをコピーし、Uvicornをポート8000で起動する。Node.js 24の段階でReactをビルドし、成果物だけをPythonの段階の `/app/static/` へコピーする。リポジトリ直下の `.dockerignore` で必要なファイルだけをビルド対象にし、PC側のnode_modules・dist・環境設定ファイル等を除外する。
 
@@ -214,13 +214,13 @@ Terraformのfmt・validateは成功。AWSへの作成・変更、OIDC認証の�
 
 実行前にECR・OIDCプロバイダー・IAMロールをAWS上に用意し、GitHubのリポジトリ変数 `AWS_ROLE_ARN` へロールのARNを登録する。信頼ポリシーに合わせ、mainを選んで実行する。長期アクセスキーは保存しない。ECRはタグの上書きを禁止しているため、同じコミットのイメージが既にある場合は再pushが失敗することがある。
 
-actionlintによる静的検証は成功。ワークフローの実行・AWSへの認証・ECRへの送信は未実施。ECSへのデプロイ処理は含めておらず、現在のタスク定義が参照する `v1` とコミットIDのタグを合わせる設定は後続工程。
+actionlintによる静的検証は成功。ワークフローの実行・AWSへの認証・ECRへの送信は未実施。ECSへのデプロイ処理は含めていない。初回構築では、pushしたコミットIDのタグをTerraformの `image_tag` に渡す。
 
 ## 基盤構築とアプリ更新の分担
 
 初回のECSサービス作成はTerraformで行い、その後のアプリ更新ではGitHub Actionsが新しいタスク定義を登録してサービスを更新する方針。`aws_ecs_service.app` に `ignore_changes = [task_definition]` を指定し、作成後に外部で切り替えたタスク定義をTerraformで戻さないようにする。タスク定義のCPU・マウント設定などをTerraformで変更しても、サービスへの反映には別途デプロイが必要になる。
 
-初回構築で使うタグを受け取る `image_tag` 変数を追加済み（既定値なし）。現時点では変数の定義だけで、タスク定義のイメージはまだ固定の `v1` を参照している。変数への接続と、GitHub ActionsのECS更新処理・追加IAM権限は後続工程。AWSへの適用や動作検証は未実施。
+初回構築で使うタグを受け取る `image_tag` 変数を、タスク定義のイメージ指定へ接続済み（既定値なし）。Terraform実行時に `-var='image_tag=ECRに保存済みのタグ'` などで明示する。GitHub ActionsがpushするタグはコミットIDで、その値を指定する。タグを自動取得する処理ではない。作成後のアプリ更新はGitHub Actionsが担当するため、`image_tag` を変更してapplyするだけでは既存サービスのタスク定義は切り替わらない。GitHub ActionsのECS更新処理・追加IAM権限は後続工程。AWSへの適用や動作検証は未実施。
 
 ## EFS本体とマウントターゲット
 
