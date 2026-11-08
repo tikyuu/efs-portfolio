@@ -95,7 +95,7 @@ resource "aws_ecs_service" "app" {
 
   # タスク起動に必要な入口・通信経路・権限の作成を待つ。
   depends_on = [
-    aws_lb_listener.https,
+    aws_lb_listener_rule.app,
     aws_efs_mount_target.private_1a,
     aws_efs_mount_target.private_1c,
     aws_iam_role_policy_attachment.task_execution,
