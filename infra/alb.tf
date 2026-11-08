@@ -37,6 +37,26 @@ resource "aws_lb_target_group" "app" {
   }
 }
 
+# ブルーグリーン更新時に、もう一方の版のタスクを登録するTG。
+resource "aws_lb_target_group" "app_alternate" {
+  name        = "tg-efs-app-alternate"
+  port        = 8000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.efs.id
+
+  health_check {
+    path     = "/health"
+    protocol = "HTTP"
+    port     = "traffic-port"
+    matcher  = "200"
+  }
+
+  tags = {
+    Name = "tg-efs-app-alternate"
+  }
+}
+
 resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.efs.arn
   port              = 443
