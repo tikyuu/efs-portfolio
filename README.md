@@ -226,6 +226,14 @@ actionlintによる静的検証は成功。ワークフローの実行、AWSへ�
 
 初回構築で使うタグを受け取る `image_tag` 変数を、タスク定義のイメージ指定へ接続済み（既定値なし）。Terraform実行時に `-var='image_tag=ECRに保存済みのタグ'` などで明示する。GitHub ActionsがpushするタグはコミットIDで、その値を指定する。タグを自動取得する処理ではない。作成後のアプリ更新はGitHub Actionsが担当するため、`image_tag` を変更してapplyするだけでは既存サービスのタスク定義は切り替わらない。GitHub ActionsのECS更新手順は記載済み。ECS操作用の追加IAM権限もTerraformに定義済み。AWSへの適用や動作検証は未実施。
 
+## ブルーグリーンの準備（2026年11月9日）
+
+AWSの費用を発生させずに理解を進めるため、当面はapplyや公開・デプロイのワークフローを実行せず、設計・コード・ローカル検証を進める。AWS実環境での切り替えを検証済みとは扱わない。
+
+ECS自身がALBの転送先を切り替える方式を検討し、`infra/iam.tf` に `iam-efs-ecs-load-balancer-role` とAWS管理ポリシー `AmazonECSInfrastructureRolePolicyForLoadBalancers` の関連付けを定義済み。ロールを使う相手は `ecs.amazonaws.com`。GitHub Actions用ロール・タスク実行ロールとは別の役割。
+
+現在はIAMロールの準備のみ。ターゲットグループは既存の `tg-efs-app` が1つで、2つ目のTG・リスナーの転送設定・ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。ロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
+
 ## EFS本体とマウントターゲット
 
 `infra/efs.tf` に保存データの暗号化を有効にしたRegional EFSを1つ定義。`private_1a`・`private_1c` の各サブネットに同じEFSへのマウントターゲットを1つずつ配置し、両方に `aws_security_group.mount` を関連付ける。
