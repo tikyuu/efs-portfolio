@@ -226,17 +226,23 @@ actionlintによる静的検証は成功。ワークフローの実行、AWSへ�
 
 初回構築で使うタグを受け取る `image_tag` 変数を、タスク定義のイメージ指定へ接続済み（既定値なし）。Terraform実行時に `-var='image_tag=ECRに保存済みのタグ'` などで明示する。GitHub ActionsがpushするタグはコミットIDで、その値を指定する。タグを自動取得する処理ではない。作成後のアプリ更新はGitHub Actionsが担当するため、`image_tag` を変更してapplyするだけでは既存サービスのタスク定義は切り替わらない。GitHub ActionsのECS更新手順は記載済み。ECS操作用の追加IAM権限もTerraformに定義済み。AWSへの適用や動作検証は未実施。
 
-## ブルーグリーンの準備（2026年11月9日）
+## ブルーグリーンの基本設定（2026年11月10日）
 
 AWSの費用を発生させずに理解を進めるため、当面はapplyや公開・デプロイのワークフローを実行せず、設計・コード・ローカル検証を進める。AWS実環境での切り替えを検証済みとは扱わない。
 
-ECS自身がALBの転送先を切り替える方式を検討し、`infra/iam.tf` に `iam-efs-ecs-load-balancer-role` とAWS管理ポリシー `AmazonECSInfrastructureRolePolicyForLoadBalancers` の関連付けを定義済み。ロールを使う相手は `ecs.amazonaws.com`。GitHub Actions用ロール・タスク実行ロールとは別の役割。
+ECS自身がALBの転送先を切り替える方式を採用し、`infra/iam.tf` に `iam-efs-ecs-load-balancer-role` とAWS管理ポリシー `AmazonECSInfrastructureRolePolicyForLoadBalancers` の関連付けを定義済み。ECSサービスの `advanced_configuration` にロールを指定し、ポリシーの関連付け完了を待つ依存関係も設定する。ロールを使う相手は `ecs.amazonaws.com`。GitHub Actions用ロール・タスク実行ロールとは別の役割。
 
-`infra/alb.tf` に2つ目のターゲットグループ `tg-efs-app-alternate` を定義済み。既存の `tg-efs-app` と同じくHTTP・8000番ポート・IPターゲットを使い、`/health` の200応答で正常性を確認する。更新時にもう一方の版のタスクを登録するための準備で、現時点ではECSサービスの切り替え先としては未指定。
+`infra/alb.tf` に2つ目のターゲットグループ `tg-efs-app-alternate` を定義済み。既存の `tg-efs-app` と同じくHTTP・8000番ポート・IPターゲットを使い、`/health` の200応答で正常性を確認する。ECSサービスに、追加TGと本番用リスナールールを指定済み。TGの役割は更新に応じて入れ替わるため、追加TGが常に新しい版になるわけではない。
 
 HTTPSリスナーに全パス（`/*`）を対象とする `aws_lb_listener_rule.app` を定義。初期の転送割合は既存TGが100、追加TGが0。リスナーの既定動作は404応答とし、アプリへの転送は専用ルールへ集約する。ECSサービスは、TGとALBを関連付けるこのルールの作成を待つ。
 
-ECSのブルーグリーン設定・必要なPassRoleの追加は未実装。IAMロールもサービスへ未関連付けのため、現在のECSサービスはまだローリング更新の構成。ECSへ切り替え対象のルールを指定し、切り替え後の転送設定をTerraformが戻さないための設定も後続で行う。Terraformのfmt・validateは成功し、AWSへの適用は未実施。
+ECSサービスの更新方式は `BLUE_GREEN`、`bake_time_in_minutes` は5。新しい版へ本番通信を切り替えた後、古い版のタスクを5分間残す設定であり、切り替え前の待機時間ではない。通常の `desired_count` は2のまま。
+
+リスナールールの `action` と、ECSサービスの `task_definition`・`load_balancer` を `ignore_changes` に指定。作成後の外部からの更新・TGの切り替えをTerraformで初期状態へ戻さない。これらのブロックをコードで変更しても、既存リソースの更新にはそのまま反映されなくなる点に注意する。
+
+切り替え前の機能テスト用Lambda・テスト経路・NAT・追加エンドポイントは採用せず、まず基本動作の理解を優先する。現時点の `/health` はアプリの応答確認のみで、EFSへの保存・取得の正常性は検証しない。CloudWatchアラームによる自動ロールバック条件も未設定。AWS適用前には、Terraform実行者がALB操作用ロールをECSへ渡す `iam:PassRole` 権限を持つことを確認する。今回、GitHub Actionsへ同ロールのPassRole権限は追加しない。
+
+Terraformのfmt・validateは成功。AWSへの適用・実環境での切り替え検証は未実施。
 
 ## EFS本体とマウントターゲット
 

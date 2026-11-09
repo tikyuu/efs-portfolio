@@ -103,4 +103,9 @@ resource "aws_lb_listener_rule" "app" {
       }
     }
   }
+
+  # 作成後の転送先の切り替えはECSに任せる。
+  lifecycle {
+    ignore_changes = [action]
+  }
 }
