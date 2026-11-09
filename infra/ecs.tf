@@ -69,6 +69,11 @@ resource "aws_ecs_service" "app" {
   platform_version = "1.4.0"
   desired_count    = 2
 
+  deployment_configuration {
+    strategy             = "BLUE_GREEN"
+    bake_time_in_minutes = 5
+  }
+
   # タスクの配置が偏った場合、AZ間で再調整する。
   availability_zone_rebalancing     = "ENABLED"
   health_check_grace_period_seconds = 60
@@ -86,11 +91,17 @@ resource "aws_ecs_service" "app" {
     target_group_arn = aws_lb_target_group.app.arn
     container_name   = "efs-app"
     container_port   = 8000
+
+    advanced_configuration {
+      alternate_target_group_arn = aws_lb_target_group.app_alternate.arn
+      production_listener_rule   = aws_lb_listener_rule.app.arn
+      role_arn                   = aws_iam_role.ecs_load_balancer.arn
+    }
   }
 
-  # 初回は上のタスク定義を使い、作成後の切り替えはGitHub Actionsで行う。
+  # 作成後のタスク定義更新はGitHub Actions、TGの切り替えはECSに任せる。
   lifecycle {
-    ignore_changes = [task_definition]
+    ignore_changes = [task_definition, load_balancer]
   }
 
   # タスク起動に必要な入口・通信経路・権限の作成を待つ。
@@ -99,6 +110,7 @@ resource "aws_ecs_service" "app" {
     aws_efs_mount_target.private_1a,
     aws_efs_mount_target.private_1c,
     aws_iam_role_policy_attachment.task_execution,
+    aws_iam_role_policy_attachment.ecs_load_balancer,
     aws_vpc_endpoint.ecr_api,
     aws_vpc_endpoint.ecr_dkr,
     aws_vpc_endpoint.logs,
