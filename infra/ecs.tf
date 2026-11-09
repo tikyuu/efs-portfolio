@@ -74,6 +74,16 @@ resource "aws_ecs_service" "app" {
     bake_time_in_minutes = 5
   }
 
+  # デプロイ中にどちらかのTGのアラームが異常になったら、以前の正常な版へ戻す。
+  alarms {
+    alarm_names = [
+      aws_cloudwatch_metric_alarm.app_target_5xx.alarm_name,
+      aws_cloudwatch_metric_alarm.app_alternate_target_5xx.alarm_name,
+    ]
+    enable   = true
+    rollback = true
+  }
+
   # タスクの配置が偏った場合、AZ間で再調整する。
   availability_zone_rebalancing     = "ENABLED"
   health_check_grace_period_seconds = 60
