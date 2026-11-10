@@ -25,3 +25,9 @@ node_modules/
 frontend/dist/
 .venv/
 __pycache__/
+
+# Tomcat学習用のビルド成果物・配布物
+tomcat-lab/build/
+tomcat-lab/*.war
+tomcat-lab/*.tar.gz
+tomcat-lab/apache-tomcat-*/
