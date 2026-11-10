@@ -28,6 +28,7 @@ __pycache__/
 
 # Tomcat学習用のビルド成果物・配布物
 tomcat-lab/build/
+tomcat-lab/target/
 tomcat-lab/*.war
 tomcat-lab/*.tar.gz
 tomcat-lab/apache-tomcat-*/
