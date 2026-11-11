@@ -14,10 +14,12 @@ Linux上でJava・Tomcat・WARがどう動くかを確認し、その後のコ�
 - 2026年11月12日、`systemd/tomcat.service` を作成。`[Unit]` の説明と、`[Service]` に `Type=simple`・`User=ken`・`ExecStart` を記載し、`catalina.sh run` でTomcatをフォアグラウンド実行する起動方法を定義した。Ubuntuへのサービス登録・サービス起動・自動起動・自動再起動の設定は未実施。
 - 続報：本人がサービス定義をUbuntuへ配置し、`daemon-reload`・`systemctl start tomcat` を実行。共有ログの `active (running)` と `Main PID: 5420 (java)`、本人のブラウザでの応答確認により、systemd経由の起動とアプリの応答を確認した。
 - サービス定義に `[Install]`・`WantedBy=multi-user.target` を追加し、Ubuntuへ反映。本人の共有ログで、`systemctl enable tomcat` によるリンク作成と `is-enabled` の `enabled` を確認した。
-- Ubuntu再起動後、本人が共有した状態確認の出力で `enabled`・`active (running)`・新しいJavaプロセス（PID 659）を確認。OS起動時のTomcatの自動起動を検証できた。再起動後のブラウザでの応答はまだ未確認。異常終了時の自動再起動は未設定。
+- Ubuntu再起動後、本人が共有した状態確認の出力で `enabled`・`active (running)`・新しいJavaプロセス（PID 659）を確認。本人から再起動後にブラウザでも開けたとの共有があり、OS起動時のTomcatの自動起動とアプリ応答を確認できた。
+- サービス定義に `Restart=on-failure`・`RestartSec=5` を追加し、Ubuntuへ反映。共有ログの `Restart=on-failure`・`RestartUSec=5s` で設定反映を確認。異常終了時に5秒待って再起動する設定で、`systemctl stop` による意図した停止は対象外。プロセスが動いたまま返すHTTPエラーも、この設定の検知対象ではない。
+- 個人検証用TomcatのメインプロセスをSIGKILLで強制終了する手順を案内し、その後の共有ログでPIDが659から1137へ変わり、`active (running)` に戻ったことを確認。プロセスの自動再起動を検証できた。再起動後のブラウザ確認への返答は「ok」のみのため、アプリ応答までの復旧は明確な報告が得られるまで要確認とする。
 
 ## 次の工程
 
-OS再起動後のアプリの応答をブラウザで確認する。各操作の説明と理解を区切りながら進め、異常終了時の自動再起動は別の工程で扱う。
+異常終了からの自動再起動後にアプリが応答したかを確認し、Linux上の構成の何をコンテナへ移すかを整理する。コンテナ化は、説明と理解を区切りながら進める。
 
 このServletはTomcat 11のJakarta Servlet APIを使用する。実務環境のTomcat 8でそのまま動くことを示すものではない。接続先IP・認証情報・Tomcat配布物や生成したWARはリポジトリへ含めない。

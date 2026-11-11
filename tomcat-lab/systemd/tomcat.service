@@ -5,6 +5,8 @@ Description=Tomcat learning application server
 Type=simple
 User=ken
 ExecStart=/home/ken/apache-tomcat-11.0.27/bin/catalina.sh run
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
