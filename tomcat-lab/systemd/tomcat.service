@@ -1,0 +1,7 @@
+[Unit]
+Description=Tomcat learning application server
+
+[Service]
+Type=simple
+User=ken
+ExecStart=/home/ken/apache-tomcat-11.0.27/bin/catalina.sh run
