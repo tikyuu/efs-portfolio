@@ -18,13 +18,27 @@ Linux上でJava・Tomcat・WARがどう動くかを確認し、その後のコ�
 - サービス定義に `Restart=on-failure`・`RestartSec=5` を追加し、Ubuntuへ反映。共有ログの `Restart=on-failure`・`RestartUSec=5s` で設定反映を確認。異常終了時に5秒待って再起動する設定で、`systemctl stop` による意図した停止は対象外。プロセスが動いたまま返すHTTPエラーも、この設定の検知対象ではない。
 - 個人検証用TomcatのメインプロセスをSIGKILLで強制終了する手順を案内し、その後の共有ログでPIDが659から1137へ変わり、`active (running)` に戻ったことを確認。プロセスの自動再起動を検証できた。再起動後のブラウザ確認への返答は「ok」のみのため、アプリ応答までの復旧は明確な報告が得られるまで要確認とする。
 
-## 次の工程
+## 今回の到達点
 
-異常終了からの自動再起動後にアプリが応答したかを確認し、コンテナ化を説明と理解を区切りながら進める。
+Ubuntu上のJava・Tomcat・WARの関係とsystemdによる管理を確認し、同じWARをコンテナ化してMacのブラウザで応答するところまでを今回の区切りとする。本人の共有ログでイメージのビルド成功、Linux・ARM64、起動コマンド `catalina.sh run` を確認し、コンテナ起動後にブラウザで開けたとの共有を得た。
+
+Tomcat専用のECS基盤を追加する案は、既存EFS構成と学習内容が重なるため、今回は採用しない。ECRへの送信とECSでの実行は未検証。既存のEFSアプリ用TerraformとCI/CDは保持する。
+
+## Ubuntuからコンテナ・ECSへの対応
+
+| 役割 | Ubuntuで確認した構成 | 今回のコンテナ | ECSへ配置する場合（未検証） |
+|---|---|---|---|
+| Java・Tomcatの準備 | OSへJavaを導入し、Tomcatを展開 | 公式ベースイメージから利用 | 同じイメージをタスクで使用 |
+| アプリの配布 | WARをscpでwebappsへ転送 | DockerfileのCOPYでWARを含める | イメージをECRへ保存し、タスク定義で指定 |
+| 起動方法 | systemdがcatalina.sh runを実行 | ベースイメージのCMDを継承 | タスク起動時にイメージのコマンドを使用 |
+| 異常終了からの復旧 | systemdのRestartでプロセスを再起動 | 自動再起動の設定・検証は未実施 | ECSサービスが必要数を満たすようタスクを起動 |
+| 実際の処理 | JVM上のTomcatがHelloアプリを実行 | コンテナ内でも同じ関係 | タスク内のコンテナでも同じ関係 |
+
+Dockerfileを作る前に、実務では稼働中のJava・Tomcatの版、WARの入手元、外部設定・追加ライブラリ・保存データを確認する。今回は架空のHelloアプリであり、実務のアプリ互換性や本番移行を検証したものではない。
 
 ## コンテナ化の現在地
 
-`Dockerfile` に `FROM tomcat:11.0.27-jre25-temurin-noble` と、WARを配置する `COPY` を記載。Docker Official ImageのTomcat 11.0.27・Java 25実行環境（Eclipse Temurin）・Ubuntu 24.04系を土台にする。2026年11月12日に公式配布ページでタグを確認した。`tomcat-lab` をビルドコンテキストとし、MacのMavenで作成済みの `target/hello.war` をイメージ内の `/usr/local/tomcat/webapps/hello.war` へコピーする。イメージのビルド・コンテナ起動・ECRへの送信・ECSへの配置は未実施。
+`Dockerfile` に `FROM tomcat:11.0.27-jre25-temurin-noble` と、WARを配置する `COPY` を記載。Docker Official ImageのTomcat 11.0.27・Java 25実行環境（Eclipse Temurin）・Ubuntu 24.04系を土台にする。2026年11月12日に公式配布ページでタグを確認した。`tomcat-lab` をビルドコンテキストとし、MacのMavenで作成済みの `target/hello.war` をイメージ内の `/usr/local/tomcat/webapps/hello.war` へコピーする。本人が `tomcat-hello:local` をビルドし、コンテナを起動して `/hello/` のブラウザ応答を確認済み。ECRへの送信・ECSへの配置は未実施。
 
 起動コマンドは土台のイメージにある `catalina.sh run` を継承する。systemdのサービス定義はイメージへ含めない。ECSへ配置する際は、この起動設定でコンテナを動かし、タスク数の維持はECSサービスへ任せる方針。
 
