@@ -20,6 +20,12 @@ Linux上でJava・Tomcat・WARがどう動くかを確認し、その後のコ�
 
 ## 次の工程
 
-異常終了からの自動再起動後にアプリが応答したかを確認し、Linux上の構成の何をコンテナへ移すかを整理する。コンテナ化は、説明と理解を区切りながら進める。
+異常終了からの自動再起動後にアプリが応答したかを確認し、コンテナ化を説明と理解を区切りながら進める。
+
+## コンテナ化の現在地
+
+`Dockerfile` に `FROM tomcat:11.0.27-jre25-temurin-noble` と、WARを配置する `COPY` を記載。Docker Official ImageのTomcat 11.0.27・Java 25実行環境（Eclipse Temurin）・Ubuntu 24.04系を土台にする。2026年11月12日に公式配布ページでタグを確認した。`tomcat-lab` をビルドコンテキストとし、MacのMavenで作成済みの `target/hello.war` をイメージ内の `/usr/local/tomcat/webapps/hello.war` へコピーする。イメージのビルド・コンテナ起動・ECRへの送信・ECSへの配置は未実施。
+
+起動コマンドは土台のイメージにある `catalina.sh run` を継承する。systemdのサービス定義はイメージへ含めない。ECSへ配置する際は、この起動設定でコンテナを動かし、タスク数の維持はECSサービスへ任せる方針。
 
 このServletはTomcat 11のJakarta Servlet APIを使用する。実務環境のTomcat 8でそのまま動くことを示すものではない。接続先IP・認証情報・Tomcat配布物や生成したWARはリポジトリへ含めない。
