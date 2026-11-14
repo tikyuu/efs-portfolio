@@ -59,3 +59,19 @@ resource "aws_api_gateway_integration_response" "reports_accepted" {
   status_code       = aws_api_gateway_method_response.reports_accepted.status_code
   selection_pattern = "200"
 }
+
+# 依頼の受付失敗を表す応答。
+resource "aws_api_gateway_method_response" "reports_error" {
+  rest_api_id = aws_api_gateway_rest_api.reports.id
+  resource_id = aws_api_gateway_resource.reports.id
+  http_method = aws_api_gateway_method.reports_post.http_method
+  status_code = "500"
+}
+
+# 成功側の条件に一致しないSQS応答は、既定の応答として500を返す。
+resource "aws_api_gateway_integration_response" "reports_error" {
+  rest_api_id = aws_api_gateway_rest_api.reports.id
+  resource_id = aws_api_gateway_resource.reports.id
+  http_method = aws_api_gateway_integration.reports_sqs.http_method
+  status_code = aws_api_gateway_method_response.reports_error.status_code
+}
