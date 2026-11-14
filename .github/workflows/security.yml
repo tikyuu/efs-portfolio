@@ -121,3 +121,6 @@ jobs:
       - run: terraform fmt -check -recursive infra
       - run: terraform -chdir=infra init -backend=false -input=false
       - run: terraform -chdir=infra validate
+      - run: terraform fmt -check -recursive API_SQS/infra
+      - run: terraform -chdir=API_SQS/infra init -backend=false -input=false
+      - run: terraform -chdir=API_SQS/infra validate
